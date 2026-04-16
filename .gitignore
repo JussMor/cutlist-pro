@@ -1,0 +1,9 @@
+node_modules
+.next
+out
+dist
+.wrangler
+.env.local
+.dev.vars
+.DS_Store
+wrangler.toml
