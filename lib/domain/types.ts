@@ -148,6 +148,29 @@ export interface PricingConfig {
 
 export type MaterialMode = "single" | "mixed";
 
+export type ArtifactType = "drawer";
+
+export interface DrawerArtifactParams {
+  count: number;
+  frontWidth: number;
+  frontHeight: number;
+  boxDepth: number;
+  boxHeight: number;
+  sideThickness: number;
+  bottomThickness: number;
+  backThickness: number;
+  materialSheetId?: number | null;
+}
+
+export interface ArtifactInstance {
+  id: string;
+  name: string;
+  type: ArtifactType;
+  moduleId: string;
+  enabled: boolean;
+  params: DrawerArtifactParams;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -165,6 +188,7 @@ export interface Project {
     previewColorMode: "material" | "piece";
     globalDims: { L: number; W: number };
     activeAssemblyId?: string;
+    artifacts?: ArtifactInstance[];
   };
   createdAt: number;
   updatedAt: number;

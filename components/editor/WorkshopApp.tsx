@@ -14,9 +14,11 @@ import {
 } from "@/lib/api/client";
 import { preparePanelsByRole } from "@/lib/domain/roleRules";
 import {
+  ArtifactInstance,
   Assembly,
   CostBreakdown as CostBreakdownType,
   CutResult,
+  DrawerArtifactParams,
   IsoPanel,
   MaterialMode,
   ModuleNode,
@@ -61,6 +63,18 @@ const rolePreviewColors: Record<PanelRole, string> = {
 
 const ROOT_MODULE: ModuleNode = { id: "main", name: "Modulo principal" };
 
+const DEFAULT_DRAWER_PARAMS: DrawerArtifactParams = {
+  count: 1,
+  frontWidth: 50,
+  frontHeight: 20,
+  boxDepth: 45,
+  boxHeight: 12,
+  sideThickness: 1.5,
+  bottomThickness: 0.5,
+  backThickness: 1.5,
+  materialSheetId: null,
+};
+
 function createManualPanel(index: number): Panel {
   return {
     id: `manual-${index}`,
@@ -74,6 +88,110 @@ function createManualPanel(index: number): Panel {
     stockSheetId: null,
     grainDirection: "none",
   };
+}
+
+function createDrawerArtifact(
+  index: number,
+  moduleId: string,
+): ArtifactInstance {
+  return {
+    id: `artifact-drawer-${Date.now()}-${index}`,
+    name: `Cajon ${index}`,
+    type: "drawer",
+    moduleId,
+    enabled: true,
+    params: { ...DEFAULT_DRAWER_PARAMS },
+  };
+}
+
+function generatePanelsFromArtifact(artifact: ArtifactInstance): Panel[] {
+  if (!artifact.enabled || artifact.type !== "drawer") return [];
+
+  const params = artifact.params;
+  const count = Math.max(1, Math.round(params.count));
+  const frontWidth = Math.max(1, params.frontWidth);
+  const frontHeight = Math.max(1, params.frontHeight);
+  const boxDepth = Math.max(1, params.boxDepth);
+  const boxHeight = Math.max(1, params.boxHeight);
+  const sideThickness = Math.max(0.1, params.sideThickness);
+  const backThickness = Math.max(0.1, params.backThickness);
+  const innerWidth = Math.max(1, frontWidth - sideThickness * 2);
+  const innerDepth = Math.max(1, boxDepth - backThickness);
+  const stockSheetId = params.materialSheetId ?? null;
+
+  const panels: Panel[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const idx = i + 1;
+    const baseId = `${artifact.id}-${idx}`;
+    const baseLabel = `${artifact.name} ${idx}`;
+
+    panels.push({
+      id: `${baseId}-front`,
+      label: `${baseLabel} frente`,
+      role: "drawer-front",
+      moduleId: artifact.moduleId,
+      qty: 1,
+      L: frontWidth,
+      W: frontHeight,
+      banding: { top: true, bottom: true, left: true, right: true },
+      stockSheetId,
+      grainDirection: "none",
+    });
+
+    panels.push({
+      id: `${baseId}-side-l`,
+      label: `${baseLabel} lateral izq`,
+      role: "drawer-side",
+      moduleId: artifact.moduleId,
+      qty: 1,
+      L: boxDepth,
+      W: boxHeight,
+      banding: { top: true, bottom: false, left: false, right: false },
+      stockSheetId,
+      grainDirection: "none",
+    });
+
+    panels.push({
+      id: `${baseId}-side-r`,
+      label: `${baseLabel} lateral der`,
+      role: "drawer-side",
+      moduleId: artifact.moduleId,
+      qty: 1,
+      L: boxDepth,
+      W: boxHeight,
+      banding: { top: true, bottom: false, left: false, right: false },
+      stockSheetId,
+      grainDirection: "none",
+    });
+
+    panels.push({
+      id: `${baseId}-back`,
+      label: `${baseLabel} trasera`,
+      role: "drawer-back",
+      moduleId: artifact.moduleId,
+      qty: 1,
+      L: innerWidth,
+      W: boxHeight,
+      banding: { top: false, bottom: false, left: false, right: false },
+      stockSheetId,
+      grainDirection: "none",
+    });
+
+    panels.push({
+      id: `${baseId}-bottom`,
+      label: `${baseLabel} fondo`,
+      role: "drawer-bottom",
+      moduleId: artifact.moduleId,
+      qty: 1,
+      L: innerWidth,
+      W: innerDepth,
+      banding: { top: false, bottom: false, left: false, right: false },
+      stockSheetId,
+      grainDirection: "none",
+    });
+  }
+
+  return panels;
 }
 
 function normalizePanelsModule(panels: Panel[]): Panel[] {
@@ -479,6 +597,7 @@ export function WorkshopApp() {
   const [opsSummary, setOpsSummary] = useState<string | null>(null);
   const [customTemplates, setCustomTemplates] = useState<Assembly[]>([]);
   const [savedProjects, setSavedProjects] = useState<Project[]>([]);
+  const [artifacts, setArtifacts] = useState<ArtifactInstance[]>([]);
   const [modules, setModules] = useState<ModuleNode[]>([ROOT_MODULE]);
   const [, setPreviewSourceMode] = useState<PreviewSourceMode>("manual");
   const [activeProjectId, setActiveProjectId] = useState("");
@@ -646,13 +765,39 @@ export function WorkshopApp() {
     setResult(null);
   }, [materialMode, primarySheetId, selectedSheetIds]);
 
-  const previewSourcePanels = useMemo(
-    () =>
-      editablePanels.filter(
-        (panel) => !hiddenPreviewPanelIds.includes(panel.id),
-      ),
-    [editablePanels, hiddenPreviewPanelIds],
+  const previewSourcePanels = useMemo(() => {
+    const derivedPanels = artifacts.flatMap((artifact) =>
+      generatePanelsFromArtifact(artifact),
+    );
+    return [...editablePanels, ...derivedPanels].filter(
+      (panel) => !hiddenPreviewPanelIds.includes(panel.id),
+    );
+  }, [artifacts, editablePanels, hiddenPreviewPanelIds]);
+
+  const derivedPanels = useMemo(
+    () => artifacts.flatMap((artifact) => generatePanelsFromArtifact(artifact)),
+    [artifacts],
   );
+
+  const allPanels = useMemo(
+    () => [...editablePanels, ...derivedPanels],
+    [editablePanels, derivedPanels],
+  );
+
+  const derivedPanelGroupLabels = useMemo(() => {
+    const labels: Record<string, string> = {};
+    for (const artifact of artifacts) {
+      const generated = generatePanelsFromArtifact(artifact);
+      for (const panel of generated) {
+        const suffix = panel.id.slice(artifact.id.length + 1);
+        const unitIndex = Number(suffix.split("-")[0]);
+        labels[panel.id] = Number.isFinite(unitIndex)
+          ? `${artifact.name} ${unitIndex}`
+          : artifact.name;
+      }
+    }
+    return labels;
+  }, [artifacts]);
 
   const previewPanels = useMemo(() => {
     const prepared = preparePanelsByRole(previewSourcePanels, pricing, modules);
@@ -688,14 +833,14 @@ export function WorkshopApp() {
   }, [isoPanels, previewColorMode, previewPanels, sheets]);
   const totals = useMemo(
     () => ({
-      pieces: editablePanels.reduce((sum, panel) => sum + panel.qty, 0),
-      types: editablePanels.length,
-      area: editablePanels.reduce(
+      pieces: allPanels.reduce((sum, panel) => sum + panel.qty, 0),
+      types: allPanels.length,
+      area: allPanels.reduce(
         (sum, panel) => sum + panel.qty * ((panel.L * panel.W) / 10000),
         0,
       ),
     }),
-    [editablePanels],
+    [allPanels],
   );
 
   const assignableSheets = useMemo(() => {
@@ -815,6 +960,92 @@ export function WorkshopApp() {
     setShowModuleForm(true);
   }
 
+  function addDrawerArtifact() {
+    const index =
+      artifacts.filter((artifact) => artifact.type === "drawer").length + 1;
+    const moduleId = modules[0]?.id ?? ROOT_MODULE.id;
+    setArtifacts((current) => [
+      ...current,
+      createDrawerArtifact(index, moduleId),
+    ]);
+    setResult(null);
+  }
+
+  function updateArtifactName(artifactId: string, name: string) {
+    setArtifacts((current) =>
+      current.map((artifact) =>
+        artifact.id === artifactId ? { ...artifact, name } : artifact,
+      ),
+    );
+    setResult(null);
+  }
+
+  function updateArtifactModule(artifactId: string, moduleId: string) {
+    setArtifacts((current) =>
+      current.map((artifact) =>
+        artifact.id === artifactId ? { ...artifact, moduleId } : artifact,
+      ),
+    );
+    setResult(null);
+  }
+
+  function updateArtifactEnabled(artifactId: string, enabled: boolean) {
+    setArtifacts((current) =>
+      current.map((artifact) =>
+        artifact.id === artifactId ? { ...artifact, enabled } : artifact,
+      ),
+    );
+    setResult(null);
+  }
+
+  function updateArtifactNumericParam(
+    artifactId: string,
+    key: keyof DrawerArtifactParams,
+    value: number,
+  ) {
+    setArtifacts((current) =>
+      current.map((artifact) => {
+        if (artifact.id !== artifactId || artifact.type !== "drawer")
+          return artifact;
+        return {
+          ...artifact,
+          params: {
+            ...artifact.params,
+            [key]: Number.isFinite(value) ? value : artifact.params[key],
+          },
+        };
+      }),
+    );
+    setResult(null);
+  }
+
+  function updateArtifactMaterial(
+    artifactId: string,
+    materialSheetId: number | null,
+  ) {
+    setArtifacts((current) =>
+      current.map((artifact) => {
+        if (artifact.id !== artifactId || artifact.type !== "drawer")
+          return artifact;
+        return {
+          ...artifact,
+          params: {
+            ...artifact.params,
+            materialSheetId,
+          },
+        };
+      }),
+    );
+    setResult(null);
+  }
+
+  function removeArtifact(artifactId: string) {
+    setArtifacts((current) =>
+      current.filter((artifact) => artifact.id !== artifactId),
+    );
+    setResult(null);
+  }
+
   function confirmAddModule() {
     const name = newModuleName.trim();
     if (!name) return;
@@ -890,7 +1121,7 @@ export function WorkshopApp() {
       setOpsSummary(null);
       setWarnings([]);
 
-      const prepared = preparePanelsByRole(editablePanels, pricing, modules);
+      const prepared = preparePanelsByRole(allPanels, pricing, modules);
       if (prepared.warnings.length > 0) {
         setWarnings(prepared.warnings);
       }
@@ -992,6 +1223,7 @@ export function WorkshopApp() {
         materialMode,
         previewColorMode,
         globalDims,
+        artifacts,
       },
       createdAt: payload.createdAt,
       updatedAt: now,
@@ -1122,6 +1354,7 @@ export function WorkshopApp() {
       setMaterialMode(workspace.materialMode ?? "single");
       setPreviewColorMode(workspace.previewColorMode ?? "material");
       setGlobalDims(workspace.globalDims ?? { L: 244, W: 244 });
+      setArtifacts(workspace.artifacts ?? []);
       setActiveAssemblyId("");
       setPreviewSourceMode("manual");
     } else if (project.cutResult?.sheets?.length) {
@@ -1130,7 +1363,10 @@ export function WorkshopApp() {
       );
       setSelectedSheetIds(Array.from(new Set(fallbackSelectedIds)));
       setPrimarySheetId(fallbackSelectedIds[0] ?? null);
+      setArtifacts([]);
       setActiveAssemblyId("");
+    } else {
+      setArtifacts([]);
     }
 
     setResult(project.cutResult ?? null);
@@ -1142,6 +1378,7 @@ export function WorkshopApp() {
 
   const startNewProject = () => {
     setEditablePanels([]);
+    setArtifacts([]);
     setModules([ROOT_MODULE]);
     setHiddenPreviewPanelIds([]);
     setResult(null);
@@ -1166,6 +1403,7 @@ export function WorkshopApp() {
     if (customTemplate) {
       const normalized = normalizePanelsModule(customTemplate.panels);
       setEditablePanels(normalized);
+      setArtifacts([]);
       setModules(deriveModulesFromPanels(normalized));
       setHiddenPreviewPanelIds([]);
       setPreviewSourceMode("custom-template");
@@ -1474,6 +1712,197 @@ export function WorkshopApp() {
             </div>
           </div>
         )}
+
+        <div
+          className="panel-title"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <span>Artefactos</span>
+          <button
+            type="button"
+            className="sidebar-add-btn"
+            onClick={addDrawerArtifact}
+            title="Agregar cajon parametrico"
+          >
+            <Plus size={13} />+ Cajon
+          </button>
+        </div>
+        <div className="template-list" style={{ marginBottom: 12 }}>
+          {artifacts.length === 0 ? (
+            <div className="muted">
+              Sin artefactos. Agrega cajones parametrizados.
+            </div>
+          ) : (
+            artifacts.map((artifact, index) => (
+              <div
+                key={artifact.id}
+                className="saved-assembly-card"
+                style={{ display: "grid", gap: 6 }}
+              >
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input
+                    className="table-input"
+                    value={artifact.name}
+                    onChange={(e) =>
+                      updateArtifactName(artifact.id, e.target.value)
+                    }
+                    placeholder="Nombre artefacto"
+                  />
+                  <button
+                    type="button"
+                    className="table-row-action"
+                    onClick={() => removeArtifact(artifact.id)}
+                  >
+                    Eliminar
+                  </button>
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gap: 6,
+                    gridTemplateColumns: "1fr 1fr",
+                  }}
+                >
+                  <select
+                    className="table-input"
+                    value={artifact.moduleId}
+                    onChange={(e) =>
+                      updateArtifactModule(artifact.id, e.target.value)
+                    }
+                  >
+                    {modules.map((module) => (
+                      <option key={module.id} value={module.id}>
+                        {module.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="table-input"
+                    value={artifact.params.materialSheetId ?? ""}
+                    onChange={(e) => {
+                      const nextId = Number(e.target.value);
+                      updateArtifactMaterial(
+                        artifact.id,
+                        Number.isFinite(nextId) ? nextId : null,
+                      );
+                    }}
+                  >
+                    <option value="">Melamina auto</option>
+                    {sheets.map((sheet) => (
+                      <option key={sheet.odooId} value={sheet.odooId}>
+                        {sheet.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gap: 6,
+                    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                  }}
+                >
+                  <input
+                    className="table-input"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={artifact.params.count}
+                    onChange={(e) =>
+                      updateArtifactNumericParam(
+                        artifact.id,
+                        "count",
+                        Number(e.target.value),
+                      )
+                    }
+                    title="Cantidad"
+                  />
+                  <input
+                    className="table-input"
+                    type="number"
+                    min="1"
+                    step="0.1"
+                    value={artifact.params.frontWidth}
+                    onChange={(e) =>
+                      updateArtifactNumericParam(
+                        artifact.id,
+                        "frontWidth",
+                        Number(e.target.value),
+                      )
+                    }
+                    title="Frente ancho"
+                  />
+                  <input
+                    className="table-input"
+                    type="number"
+                    min="1"
+                    step="0.1"
+                    value={artifact.params.frontHeight}
+                    onChange={(e) =>
+                      updateArtifactNumericParam(
+                        artifact.id,
+                        "frontHeight",
+                        Number(e.target.value),
+                      )
+                    }
+                    title="Frente alto"
+                  />
+                  <input
+                    className="table-input"
+                    type="number"
+                    min="1"
+                    step="0.1"
+                    value={artifact.params.boxDepth}
+                    onChange={(e) =>
+                      updateArtifactNumericParam(
+                        artifact.id,
+                        "boxDepth",
+                        Number(e.target.value),
+                      )
+                    }
+                    title="Fondo caja"
+                  />
+                  <input
+                    className="table-input"
+                    type="number"
+                    min="1"
+                    step="0.1"
+                    value={artifact.params.boxHeight}
+                    onChange={(e) =>
+                      updateArtifactNumericParam(
+                        artifact.id,
+                        "boxHeight",
+                        Number(e.target.value),
+                      )
+                    }
+                    title="Alto caja"
+                  />
+                  <label
+                    className="muted"
+                    style={{ display: "flex", alignItems: "center", gap: 6 }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={artifact.enabled}
+                      onChange={(e) =>
+                        updateArtifactEnabled(artifact.id, e.target.checked)
+                      }
+                    />
+                    Activo
+                  </label>
+                </div>
+                <small className="muted">
+                  Artefacto {index + 1}: genera piezas de cajon y actualiza
+                  preview/corte.
+                </small>
+              </div>
+            ))
+          )}
+        </div>
 
         <div className="panel-title">Resumen</div>
         <div className="stat-list">
@@ -1830,7 +2259,9 @@ export function WorkshopApp() {
               )}
 
               <CutlistTable
-                panels={editablePanels}
+                panels={allPanels}
+                derivedPanelIds={derivedPanels.map((panel) => panel.id)}
+                derivedPanelGroupLabels={derivedPanelGroupLabels}
                 modules={modules}
                 hiddenPreviewPanelIds={hiddenPreviewPanelIds}
                 availableSheets={assignableSheets}
@@ -1844,7 +2275,7 @@ export function WorkshopApp() {
               />
               <div className="sheet-layouts-block">
                 <h3>Planchas y posiciones de corte</h3>
-                <SheetLayouts panels={editablePanels} result={result} />
+                <SheetLayouts panels={allPanels} result={result} />
               </div>
             </div>
           )}

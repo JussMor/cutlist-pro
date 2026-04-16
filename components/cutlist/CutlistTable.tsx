@@ -8,9 +8,12 @@ import {
   StockSheet,
 } from "@/lib/domain/types";
 import { Eye, EyeOff, Plus, Trash2 } from "lucide-react";
+import { Fragment, useState } from "react";
 
 interface Props {
   panels: Panel[];
+  derivedPanelIds?: string[];
+  derivedPanelGroupLabels?: Record<string, string>;
   modules: ModuleNode[];
   hiddenPreviewPanelIds: string[];
   availableSheets: StockSheet[];
@@ -46,6 +49,8 @@ const roles: PanelRole[] = [
 
 export function CutlistTable({
   panels,
+  derivedPanelIds = [],
+  derivedPanelGroupLabels = {},
   modules,
   hiddenPreviewPanelIds,
   availableSheets,
@@ -57,6 +62,216 @@ export function CutlistTable({
   onAddPanel,
   onAddModule,
 }: Props) {
+  const derivedSet = new Set(derivedPanelIds);
+  const manualPanels = panels.filter((panel) => !derivedSet.has(panel.id));
+  const [collapsedGroups, setCollapsedGroups] = useState<
+    Record<string, boolean>
+  >({});
+
+  const groupedDerivedPanels = panels.reduce<
+    Array<{ groupLabel: string; panels: Panel[] }>
+  >((acc, panel) => {
+    if (!derivedSet.has(panel.id)) return acc;
+    const groupLabel = derivedPanelGroupLabels[panel.id] || "Artefacto";
+    const existing = acc.find((group) => group.groupLabel === groupLabel);
+    if (existing) {
+      existing.panels.push(panel);
+      return acc;
+    }
+    acc.push({ groupLabel, panels: [panel] });
+    return acc;
+  }, []);
+
+  function renderPanelRow(panel: Panel) {
+    const isHiddenInPreview = hiddenPreviewPanelIds.includes(panel.id);
+    const isDerived = derivedSet.has(panel.id);
+
+    return (
+      <tr key={panel.id}>
+        <td>
+          <div style={{ display: "grid", gap: 4 }}>
+            <input
+              className="table-input"
+              value={panel.label}
+              disabled={isDerived}
+              onChange={(event) =>
+                onPanelChange(panel.id, "label", event.target.value)
+              }
+            />
+            <span className="muted" style={{ fontSize: 11 }}>
+              {isDerived ? "Derivado (artefacto)" : "Manual"}
+            </span>
+          </div>
+        </td>
+        <td>
+          <input
+            className="table-input"
+            type="number"
+            min="1"
+            step="0.1"
+            value={panel.L}
+            disabled={isDerived}
+            onChange={(event) =>
+              onPanelChange(panel.id, "L", Number(event.target.value))
+            }
+          />
+        </td>
+        <td>
+          <input
+            className="table-input"
+            type="number"
+            min="1"
+            step="0.1"
+            value={panel.W}
+            disabled={isDerived}
+            onChange={(event) =>
+              onPanelChange(panel.id, "W", Number(event.target.value))
+            }
+          />
+        </td>
+        <td>
+          <input
+            className="table-input"
+            type="number"
+            min="1"
+            step="1"
+            value={panel.qty}
+            disabled={isDerived}
+            onChange={(event) =>
+              onPanelChange(panel.id, "qty", Number(event.target.value))
+            }
+          />
+        </td>
+        <td>
+          <select
+            className="table-input"
+            value={panel.role}
+            disabled={isDerived}
+            onChange={(event) =>
+              onPanelChange(panel.id, "role", event.target.value)
+            }
+          >
+            {roles.map((role) => (
+              <option key={role} value={role}>
+                {role}
+              </option>
+            ))}
+          </select>
+        </td>
+        <td>
+          <select
+            className="table-input"
+            value={panel.moduleId ?? "main"}
+            disabled={isDerived}
+            onChange={(event) =>
+              onPanelChange(panel.id, "moduleId", event.target.value)
+            }
+          >
+            {modules.map((module) => (
+              <option key={module.id} value={module.id}>
+                {module.parentId ? `- ${module.name}` : module.name}
+              </option>
+            ))}
+          </select>
+        </td>
+        <td>
+          <select
+            className="table-input"
+            value={panel.stockSheetId ?? ""}
+            disabled={
+              isDerived ||
+              materialMode === "single" ||
+              availableSheets.length === 0
+            }
+            onChange={(event) =>
+              onPanelChange(
+                panel.id,
+                "stockSheetId",
+                Number(event.target.value),
+              )
+            }
+          >
+            {materialMode === "mixed" && availableSheets.length === 0 && (
+              <option value="">Sin tableros</option>
+            )}
+            {materialMode === "mixed" && availableSheets.length > 0 && (
+              <option value="">Sin asignar</option>
+            )}
+            {availableSheets.map((sheet) => (
+              <option key={sheet.odooId} value={sheet.odooId}>
+                {sheet.name}
+              </option>
+            ))}
+          </select>
+        </td>
+        <td>
+          <div className="banding-grid">
+            <button
+              type="button"
+              className={`banding-toggle ${panel.banding.top ? "active" : ""}`}
+              disabled={isDerived}
+              onClick={() => onBandingToggle(panel.id, "top")}
+            >
+              Arr
+            </button>
+            <button
+              type="button"
+              className={`banding-toggle ${panel.banding.bottom ? "active" : ""}`}
+              disabled={isDerived}
+              onClick={() => onBandingToggle(panel.id, "bottom")}
+            >
+              Aba
+            </button>
+            <button
+              type="button"
+              className={`banding-toggle ${panel.banding.left ? "active" : ""}`}
+              disabled={isDerived}
+              onClick={() => onBandingToggle(panel.id, "left")}
+            >
+              Izq
+            </button>
+            <button
+              type="button"
+              className={`banding-toggle ${panel.banding.right ? "active" : ""}`}
+              disabled={isDerived}
+              onClick={() => onBandingToggle(panel.id, "right")}
+            >
+              Der
+            </button>
+          </div>
+        </td>
+        <td>
+          <button
+            type="button"
+            className={`table-row-action preview-hide-toggle ${isHiddenInPreview ? "is-hidden" : ""}`}
+            onClick={() => onTogglePreviewVisibility(panel.id)}
+          >
+            {isHiddenInPreview ? <Eye size={14} /> : <EyeOff size={14} />}
+            {isHiddenInPreview ? "Mostrar" : "Ocultar"}
+          </button>
+        </td>
+        <td>
+          <button
+            type="button"
+            className="table-row-action"
+            disabled={isDerived}
+            onClick={() => onRemovePanel(panel.id)}
+          >
+            <Trash2 size={14} />
+            {isDerived ? "Bloqueado" : "Eliminar"}
+          </button>
+        </td>
+      </tr>
+    );
+  }
+
+  function toggleGroup(groupLabel: string) {
+    setCollapsedGroups((current) => ({
+      ...current,
+      [groupLabel]: !current[groupLabel],
+    }));
+  }
+
   return (
     <div className="cutlist-editor">
       <div className="cutlist-toolbar">
@@ -86,174 +301,52 @@ export function CutlistTable({
           </tr>
         </thead>
         <tbody>
-          {panels.map((panel) => {
-            const isHiddenInPreview = hiddenPreviewPanelIds.includes(panel.id);
+          {manualPanels.length > 0 && (
+            <tr>
+              <td
+                colSpan={10}
+                className="muted"
+                style={{ fontSize: 12, padding: "10px 12px" }}
+              >
+                Piezas manuales
+              </td>
+            </tr>
+          )}
+          {manualPanels.map((panel) => renderPanelRow(panel))}
 
-            return (
-              <tr key={panel.id}>
-                <td>
-                  <input
-                    className="table-input"
-                    value={panel.label}
-                    onChange={(event) =>
-                      onPanelChange(panel.id, "label", event.target.value)
-                    }
-                  />
-                </td>
-                <td>
-                  <input
-                    className="table-input"
-                    type="number"
-                    min="1"
-                    step="0.1"
-                    value={panel.L}
-                    onChange={(event) =>
-                      onPanelChange(panel.id, "L", Number(event.target.value))
-                    }
-                  />
-                </td>
-                <td>
-                  <input
-                    className="table-input"
-                    type="number"
-                    min="1"
-                    step="0.1"
-                    value={panel.W}
-                    onChange={(event) =>
-                      onPanelChange(panel.id, "W", Number(event.target.value))
-                    }
-                  />
-                </td>
-                <td>
-                  <input
-                    className="table-input"
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={panel.qty}
-                    onChange={(event) =>
-                      onPanelChange(panel.id, "qty", Number(event.target.value))
-                    }
-                  />
-                </td>
-                <td>
-                  <select
-                    className="table-input"
-                    value={panel.role}
-                    onChange={(event) =>
-                      onPanelChange(panel.id, "role", event.target.value)
-                    }
+          {groupedDerivedPanels.map((group) => (
+            <Fragment key={group.groupLabel}>
+              <tr>
+                <td
+                  colSpan={10}
+                  className="muted"
+                  style={{ fontSize: 12, padding: "10px 12px" }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 8,
+                    }}
                   >
-                    {roles.map((role) => (
-                      <option key={role} value={role}>
-                        {role}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <select
-                    className="table-input"
-                    value={panel.moduleId ?? "main"}
-                    onChange={(event) =>
-                      onPanelChange(panel.id, "moduleId", event.target.value)
-                    }
-                  >
-                    {modules.map((module) => (
-                      <option key={module.id} value={module.id}>
-                        {module.parentId ? `- ${module.name}` : module.name}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <select
-                    className="table-input"
-                    value={panel.stockSheetId ?? ""}
-                    disabled={
-                      materialMode === "single" || availableSheets.length === 0
-                    }
-                    onChange={(event) =>
-                      onPanelChange(
-                        panel.id,
-                        "stockSheetId",
-                        Number(event.target.value),
-                      )
-                    }
-                  >
-                    {materialMode === "mixed" &&
-                      availableSheets.length === 0 && (
-                        <option value="">Sin tableros</option>
-                      )}
-                    {materialMode === "mixed" && availableSheets.length > 0 && (
-                      <option value="">Sin asignar</option>
-                    )}
-                    {availableSheets.map((sheet) => (
-                      <option key={sheet.odooId} value={sheet.odooId}>
-                        {sheet.name}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <div className="banding-grid">
+                    <span>Artefacto: {group.groupLabel}</span>
                     <button
                       type="button"
-                      className={`banding-toggle ${panel.banding.top ? "active" : ""}`}
-                      onClick={() => onBandingToggle(panel.id, "top")}
+                      className="table-row-action preview-hide-toggle"
+                      onClick={() => toggleGroup(group.groupLabel)}
                     >
-                      Arr
-                    </button>
-                    <button
-                      type="button"
-                      className={`banding-toggle ${panel.banding.bottom ? "active" : ""}`}
-                      onClick={() => onBandingToggle(panel.id, "bottom")}
-                    >
-                      Aba
-                    </button>
-                    <button
-                      type="button"
-                      className={`banding-toggle ${panel.banding.left ? "active" : ""}`}
-                      onClick={() => onBandingToggle(panel.id, "left")}
-                    >
-                      Izq
-                    </button>
-                    <button
-                      type="button"
-                      className={`banding-toggle ${panel.banding.right ? "active" : ""}`}
-                      onClick={() => onBandingToggle(panel.id, "right")}
-                    >
-                      Der
+                      {collapsedGroups[group.groupLabel]
+                        ? "Expandir"
+                        : "Colapsar"}
                     </button>
                   </div>
                 </td>
-                <td>
-                  <button
-                    type="button"
-                    className={`table-row-action preview-hide-toggle ${isHiddenInPreview ? "is-hidden" : ""}`}
-                    onClick={() => onTogglePreviewVisibility(panel.id)}
-                  >
-                    {isHiddenInPreview ? (
-                      <Eye size={14} />
-                    ) : (
-                      <EyeOff size={14} />
-                    )}
-                    {isHiddenInPreview ? "Mostrar" : "Ocultar"}
-                  </button>
-                </td>
-                <td>
-                  <button
-                    type="button"
-                    className="table-row-action"
-                    onClick={() => onRemovePanel(panel.id)}
-                  >
-                    <Trash2 size={14} />
-                    Eliminar
-                  </button>
-                </td>
               </tr>
-            );
-          })}
+              {!collapsedGroups[group.groupLabel] &&
+                group.panels.map((panel) => renderPanelRow(panel))}
+            </Fragment>
+          ))}
         </tbody>
       </table>
     </div>
