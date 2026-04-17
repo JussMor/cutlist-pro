@@ -60,8 +60,7 @@ export default {
       if (path === "/api/sheets" && method === "GET") {
         const forceRefresh = url.searchParams.get("refresh") === "1";
         if (forceRefresh) {
-          // TODO: key is stale; should be "odoo:sheets:v2" — fix in separate PR
-          await env.KV.delete("odoo:sheets");
+          await env.KV.delete("odoo:sheets:v2");
           await env.KV.delete("odoo:uid");
         }
         const sheets = await fetchOdooSheets(env);
