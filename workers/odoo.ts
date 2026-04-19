@@ -12,7 +12,7 @@ export async function fetchOdooSheets(env: Env): Promise<StockSheet[]> {
   const cached = await env.KV.get<StockSheet[]>(sheetsCacheKey, "json");
   if (cached?.length) return cached;
 
-  // Sin credenciales → datos mock para desarrollo
+  // Validar que todas las credenciales de Odoo estén configuradas
   const hasCredentials =
     env.ODOO_URL &&
     env.ODOO_DB &&
@@ -20,30 +20,9 @@ export async function fetchOdooSheets(env: Env): Promise<StockSheet[]> {
     (env.ODOO_API_KEY || env.ODOO_PASSWORD);
 
   if (!hasCredentials) {
-    const fallback: StockSheet[] = [
-      {
-        odooId: 1,
-        name: "Melamina Blanca 244x122",
-        qty: 25,
-        pricePerSheet: 45,
-        L: 244,
-        W: 122,
-        material: "Melamina",
-      },
-      {
-        odooId: 2,
-        name: "Melamina Roble 244x122",
-        qty: 10,
-        pricePerSheet: 55,
-        L: 244,
-        W: 122,
-        material: "Melamina",
-      },
-    ];
-    await env.KV.put(sheetsCacheKey, JSON.stringify(fallback), {
-      expirationTtl: 300,
-    });
-    return fallback;
+    throw new Error(
+      "Odoo credentials not configured: ODOO_URL, ODOO_DB, ODOO_USER, and (ODOO_API_KEY or ODOO_PASSWORD) are required",
+    );
   }
 
   // ── Paso 1: obtener uid (con cache de 23h para no re-autenticar cada vez) ──
