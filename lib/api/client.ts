@@ -7,7 +7,24 @@ import {
   StockSheet,
 } from "@/lib/domain/types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8787";
+function resolveApiBase(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+
+  if (typeof window !== "undefined") {
+    const isLocalhost =
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1";
+
+    // In production, same-origin keeps frontend+API working behind one domain.
+    return isLocalhost ? "http://127.0.0.1:8787" : "";
+  }
+
+  return "http://127.0.0.1:8787";
+}
+
+const API_BASE = resolveApiBase();
 
 async function parse<T>(res: Response): Promise<T> {
   if (!res.ok) {

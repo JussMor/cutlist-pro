@@ -1,0 +1,11 @@
+name = "cutlist-pro-frontend"
+main = ".open-next/worker.js"
+compatibility_date = "2026-04-15"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+NEXT_PUBLIC_API_URL = "https://cutlist-pro.jussmor.workers.dev"
+
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"

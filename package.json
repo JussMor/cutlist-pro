@@ -10,7 +10,10 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "worker:deploy": "wrangler deploy workers/api.ts"
+    "worker:deploy": "wrangler deploy workers/api.ts",
+    "frontend:build": "opennextjs-cloudflare build",
+    "frontend:deploy": "npm run frontend:build && wrangler deploy -c wrangler.frontend.toml",
+    "frontend:dev": "npm run frontend:build && wrangler dev -c wrangler.frontend.toml"
   },
   "dependencies": {
     "lucide-react": "^1.8.0",
@@ -26,7 +29,8 @@
     "concurrently": "^9.1.2",
     "eslint": "9.22.0",
     "eslint-config-next": "15.2.4",
+    "@opennextjs/cloudflare": "1.6.2",
     "typescript": "5.8.2",
-    "wrangler": "4.11.1"
+    "wrangler": "4.26.0"
   }
 }
