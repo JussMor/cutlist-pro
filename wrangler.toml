@@ -1,4 +1,4 @@
-name = "cutlist-pro-api"
+name = "cutlist-pro"
 main = "workers/api.ts"
 compatibility_date = "2026-04-15"
 
