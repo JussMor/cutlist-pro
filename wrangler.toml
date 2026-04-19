@@ -13,7 +13,10 @@ binding = "KV"
 id = "cdf299fa887e48438ff2492434db5243"
 
 [vars]
-ODOO_DB = "mi_empresa"
+ODOO_URL = "https://www.panelexcenter.com"
+ODOO_USER = "jussmor16@gmail.com"
+ODOO_DB = "panelexcenter"
+ODOO_API_KEY = ""
 API_VERSION = "v1"
 
 [dev]
