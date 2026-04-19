@@ -6,7 +6,7 @@ Pasar de una edicion basada en filas de paneles (muchas celdas manuales) a una e
 
 - Cajon completo
 - Puertas
-- Zapatera
+- Zapatera d
 - Modulos especiales
 
 El usuario configura parametros del artefacto y el sistema genera/actualiza automaticamente las piezas de corte, materiales, operaciones y preview.
