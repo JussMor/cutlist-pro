@@ -1,0 +1,21 @@
+name = "cutlist-pro-api"
+main = "workers/api.ts"
+compatibility_date = "2026-04-15"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cutlist-db"
+database_id = "56a995f7-4930-49c9-99e4-7d4ce293f277"
+migrations_dir = "migrations"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "cdf299fa887e48438ff2492434db5243"
+
+[vars]
+ODOO_DB = "mi_empresa"
+API_VERSION = "v1"
+
+[dev]
+port = 8787
+local_protocol = "http"
