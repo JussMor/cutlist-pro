@@ -117,6 +117,14 @@ export function useWorkshopPreview({
     });
   }, [isoPanels, previewColorMode, previewPanels, sheets]);
 
+  function panelFitsAnySource(panel: Panel, sourceSheets: StockSheet[]) {
+    return sourceSheets.some(
+      (sheet) =>
+        (panel.W <= sheet.W && panel.L <= sheet.L) ||
+        (panel.L <= sheet.W && panel.W <= sheet.L),
+    );
+  }
+
   async function runOptimize(options?: { bypassRoleValidation?: boolean }) {
     const startedAt = Date.now();
     let failed = false;
@@ -205,6 +213,38 @@ export function useWorkshopPreview({
         throw new Error("Selecciona al menos un tablero para optimizar");
       }
 
+      if (materialMode === "single" && source.length > 0) {
+        const targetSheetId = source[0].odooId;
+        const constrainedToOther = optimizePanels.filter(
+          (panel) =>
+            Boolean(panel.stockSheetId) && panel.stockSheetId !== targetSheetId,
+        );
+        if (constrainedToOther.length > 0) {
+          console.warn("[optimize] single mode sheet mismatch", {
+            targetSheetId,
+            mismatchedPanels: constrainedToOther.length,
+            samplePanelIds: constrainedToOther.slice(0, 5).map((p) => p.id),
+            bypassRoleValidation,
+          });
+
+          if (bypassRoleValidation) {
+            optimizePanels = optimizePanels.map((panel) =>
+              panel.stockSheetId && panel.stockSheetId !== targetSheetId
+                ? { ...panel, stockSheetId: targetSheetId }
+                : panel,
+            );
+            setWarnings((current) => [
+              ...current,
+              `Modo rapido: ${constrainedToOther.length} pieza(s) reasignadas al tablero activo para forzar el corte.`,
+            ]);
+            console.warn("[optimize] single mode reassignment applied", {
+              targetSheetId,
+              reassignedPanels: constrainedToOther.length,
+            });
+          }
+        }
+      }
+
       if (materialMode === "mixed") {
         const sourceBeforeCanonicalization = source.length;
         const canonicalByGroup = new Map<string, number>();
@@ -239,6 +279,45 @@ export function useWorkshopPreview({
         });
       }
 
+      const sourceSheetIds = new Set(source.map((sheet) => sheet.odooId));
+      const constrainedPanels = optimizePanels.filter((panel) =>
+        Boolean(panel.stockSheetId),
+      );
+      const sheetMismatchPanels = optimizePanels.filter(
+        (panel) =>
+          Boolean(panel.stockSheetId) &&
+          !sourceSheetIds.has(panel.stockSheetId as number),
+      );
+      const oversizedPanels = optimizePanels.filter(
+        (panel) => !panelFitsAnySource(panel, source),
+      );
+      console.info("[optimize] preflight", {
+        constrainedPanels: constrainedPanels.length,
+        sheetMismatchPanels: sheetMismatchPanels.length,
+        oversizedPanels: oversizedPanels.length,
+      });
+      if (sheetMismatchPanels.length > 0) {
+        console.warn("[optimize] preflight sheet mismatch details", {
+          samplePanelIds: sheetMismatchPanels.slice(0, 5).map((p) => p.id),
+          sourceSheetIds: Array.from(sourceSheetIds),
+        });
+      }
+      if (oversizedPanels.length > 0) {
+        console.warn("[optimize] preflight oversized details", {
+          samplePanels: oversizedPanels.slice(0, 5).map((panel) => ({
+            id: panel.id,
+            L: panel.L,
+            W: panel.W,
+            stockSheetId: panel.stockSheetId ?? null,
+          })),
+          sourceSheets: source.slice(0, 3).map((sheet) => ({
+            odooId: sheet.odooId,
+            L: sheet.L,
+            W: sheet.W,
+          })),
+        });
+      }
+
       console.info("[optimize] optimize API request", {
         panelCount: optimizePanels.length,
         sheetCount: source.length,
@@ -253,6 +332,24 @@ export function useWorkshopPreview({
         wastePercent: opt.stats.wastePercent,
         appliedSplitPreference: opt.optimizer?.appliedSplitPreference,
       });
+
+      const placedCount = opt.sheets.reduce(
+        (sum, sheet) => sum + sheet.placed.length,
+        0,
+      );
+      if (optimizePanels.length > 0 && placedCount === 0) {
+        const diagnostic = {
+          optimizePanels: optimizePanels.length,
+          sourceSheets: source.length,
+          constrainedPanels: constrainedPanels.length,
+          sheetMismatchPanels: sheetMismatchPanels.length,
+          oversizedPanels: oversizedPanels.length,
+        };
+        console.error("[optimize] empty placement result", diagnostic);
+        throw new Error(
+          "No se pudo ubicar ninguna pieza en el tablero seleccionado. Revisa asignacion de tablero por pieza o dimensiones (L/W).",
+        );
+      }
       setResult(opt);
     } catch (e) {
       failed = true;
