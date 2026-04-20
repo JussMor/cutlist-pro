@@ -107,8 +107,6 @@ export function useWorkshopProjects({
   }
 
   async function removeProject(projectId: string, activeId: string) {
-    if (!window.confirm("\u00bfSeguro que deseas eliminar este proyecto?"))
-      return;
     try {
       setError(null);
       await deleteProject(projectId);

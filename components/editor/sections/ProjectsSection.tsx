@@ -1,4 +1,20 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Project } from "@/lib/domain/types";
 import { FolderOpen, Plus, Trash2 } from "lucide-react";
 
@@ -19,6 +35,10 @@ export function ProjectsSection({
   onRemoveProject,
   onNewProject,
 }: ProjectsSectionProps) {
+  function shortProjectName(name: string) {
+    return name.length > 10 ? `${name.slice(0, 10)}...` : name;
+  }
+
   return (
     <>
       <div className="panel-title flex items-center justify-between">
@@ -55,9 +75,14 @@ export function ProjectsSection({
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[15px] font-semibold leading-tight text-[#d7dde9]">
-                    {project.name}
-                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="truncate text-[15px] font-semibold leading-tight text-[#d7dde9]">
+                        {shortProjectName(project.name)}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>{project.name}</TooltipContent>
+                  </Tooltip>
                   <div className="mt-1 text-xs text-[#7d879a]">
                     {new Date(project.updatedAt).toLocaleString()}
                   </div>
@@ -74,17 +99,38 @@ export function ProjectsSection({
                     <FolderOpen size={14} />
                     <span className="sr-only">Cargar proyecto</span>
                   </Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon-xs"
-                    className="rounded-lg bg-[#24131a] text-[#f1b0bf] hover:bg-[#321721]"
-                    onClick={() => onRemoveProject(project.id)}
-                    title="Eliminar proyecto"
-                  >
-                    <Trash2 size={14} />
-                    <span className="sr-only">Eliminar proyecto</span>
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon-xs"
+                        className="rounded-lg bg-[#24131a] text-[#f1b0bf] hover:bg-[#321721]"
+                        title="Eliminar proyecto"
+                      >
+                        <Trash2 size={14} />
+                        <span className="sr-only">Eliminar proyecto</span>
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Eliminar proyecto</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Esta acción no se puede deshacer. El proyecto{" "}
+                          {project.name} se eliminará de forma permanente.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-[#24131a] text-[#f1b0bf] hover:bg-[#321721]"
+                          onClick={() => onRemoveProject(project.id)}
+                        >
+                          Eliminar
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </div>
             </div>

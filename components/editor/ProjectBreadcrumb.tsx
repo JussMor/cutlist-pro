@@ -1,4 +1,9 @@
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -6,6 +11,11 @@ interface ProjectBreadcrumbProps {
   activeProjectName: string | null;
   savingProject: boolean;
   onSaveName: (nextName: string) => Promise<void>;
+}
+
+function shortProjectName(name: string | null) {
+  if (!name) return "Sin guardar";
+  return name.length > 10 ? `${name.slice(0, 10)}...` : name;
 }
 
 export function ProjectBreadcrumb({
@@ -72,16 +82,20 @@ export function ProjectBreadcrumb({
           </Button>
         </>
       ) : (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => setIsEditing(true)}
-          className="h-7 max-w-xs justify-start truncate px-2 text-left text-sm font-semibold text-[#d7dde9] hover:bg-[#111723] hover:text-[#f4b450]"
-          title="Editar nombre del proyecto"
-        >
-          {activeProjectName ?? "Sin guardar"}
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsEditing(true)}
+              className="h-7 max-w-xs justify-start truncate px-2 text-left text-sm font-semibold text-[#d7dde9] hover:bg-[#111723] hover:text-[#f4b450]"
+            >
+              {shortProjectName(activeProjectName)}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{activeProjectName ?? "Sin guardar"}</TooltipContent>
+        </Tooltip>
       )}
     </div>
   );
