@@ -11,8 +11,8 @@
   --panel: #121722;
   --line: #262d3d;
   --text: #d7dde9;
-  --muted: oklch(0.97 0 0);
-  --accent: oklch(0.97 0 0);
+  --muted: #7d879a;
+  --accent: #f4b450;
   --accent-soft: #3d2b12;
   --ok: #84c7a6;
   --background: oklch(1 0 0);
