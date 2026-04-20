@@ -344,6 +344,9 @@ export function WorkshopApp() {
                   className="template-btn"
                   type="button"
                   onClick={() => {
+                    console.info("[optimize] click optimize", {
+                      bypassRoleValidation: false,
+                    });
                     void pv.runOptimize();
                   }}
                   disabled={pv.optimizing}
@@ -354,6 +357,9 @@ export function WorkshopApp() {
                   className="template-btn"
                   type="button"
                   onClick={() => {
+                    console.info("[optimize] click optimize", {
+                      bypassRoleValidation: true,
+                    });
                     void pv.runOptimize({ bypassRoleValidation: true });
                   }}
                   disabled={pv.optimizing}

@@ -118,14 +118,32 @@ export function useWorkshopPreview({
   }, [isoPanels, previewColorMode, previewPanels, sheets]);
 
   async function runOptimize(options?: { bypassRoleValidation?: boolean }) {
+    const startedAt = Date.now();
+    let failed = false;
     try {
       const bypassRoleValidation = Boolean(options?.bypassRoleValidation);
+      console.info("[optimize] runOptimize:start", {
+        bypassRoleValidation,
+        materialMode,
+        splitPreference,
+        panels: allPanels.length,
+        modules: modules.length,
+        assignableSheets: assignableSheets.length,
+        sheetsInState: sheets.length,
+        primarySheetId,
+      });
       setOptimizing(true);
       setError(null);
       setOpsSummary(null);
       setWarnings([]);
 
       const prepared = preparePanelsByRole(allPanels, pricing, modules);
+      console.info("[optimize] preparePanelsByRole", {
+        preparedPanels: prepared.panels.length,
+        warnings: prepared.warnings.length,
+        issues: prepared.issues,
+        ops: prepared.ops.length,
+      });
       const effectiveWarnings = [
         ...prepared.warnings,
         ...(bypassRoleValidation
@@ -133,8 +151,17 @@ export function useWorkshopPreview({
           : []),
       ];
       if (effectiveWarnings.length > 0) setWarnings(effectiveWarnings);
-      if (prepared.issues.length > 0 && !bypassRoleValidation)
+      if (prepared.issues.length > 0 && !bypassRoleValidation) {
+        console.warn("[optimize] blocked by role validation", {
+          issues: prepared.issues,
+        });
         throw new Error(prepared.issues.join(" "));
+      }
+      if (prepared.issues.length > 0 && bypassRoleValidation) {
+        console.warn("[optimize] bypassing role validation issues", {
+          issues: prepared.issues,
+        });
+      }
 
       const opsByType = prepared.ops.reduce<Record<string, number>>(
         (acc, op) => {
@@ -154,6 +181,7 @@ export function useWorkshopPreview({
       let source = assignableSheets;
       let optimizePanels = prepared.panels;
       if (sheets.length === 0) {
+        console.info("[optimize] sheets missing in state, fetching sheets API");
         const loaded = await fetchSheets();
         setSheets(loaded);
         source =
@@ -162,12 +190,23 @@ export function useWorkshopPreview({
                 (s) => s.odooId === (primarySheetId ?? loaded[0]?.odooId),
               )
             : loaded;
+        console.info("[optimize] sheets fetched", {
+          loadedSheets: loaded.length,
+          selectedSheets: source.length,
+          materialMode,
+        });
       }
 
-      if (source.length === 0)
+      if (source.length === 0) {
+        console.error("[optimize] no source sheets available", {
+          materialMode,
+          primarySheetId,
+        });
         throw new Error("Selecciona al menos un tablero para optimizar");
+      }
 
       if (materialMode === "mixed") {
+        const sourceBeforeCanonicalization = source.length;
         const canonicalByGroup = new Map<string, number>();
         const canonicalBySheetId = new Map<number, number>();
         for (const sheet of source) {
@@ -183,23 +222,57 @@ export function useWorkshopPreview({
           seen.add(cId);
           return true;
         });
+        let remappedPanels = 0;
         optimizePanels = prepared.panels.map((panel) => {
           if (!panel.stockSheetId) return panel;
           const cId =
             canonicalBySheetId.get(panel.stockSheetId) ?? panel.stockSheetId;
+          if (cId !== panel.stockSheetId) remappedPanels += 1;
           return cId === panel.stockSheetId
             ? panel
             : { ...panel, stockSheetId: cId };
         });
+        console.info("[optimize] mixed canonicalization", {
+          sourceBeforeCanonicalization,
+          sourceAfterCanonicalization: source.length,
+          remappedPanels,
+        });
       }
 
+      console.info("[optimize] optimize API request", {
+        panelCount: optimizePanels.length,
+        sheetCount: source.length,
+        splitPreference,
+        kerfCm: pricing.kerfCm,
+      });
       const opt = await optimize(optimizePanels, source, pricing, {
         splitPreference,
       });
+      console.info("[optimize] optimize API success", {
+        sheetsUsed: opt.stats.sheetsUsed,
+        wastePercent: opt.stats.wastePercent,
+        appliedSplitPreference: opt.optimizer?.appliedSplitPreference,
+      });
       setResult(opt);
     } catch (e) {
+      failed = true;
+      const message = e instanceof Error ? e.message : "Error optimizando";
+      console.error("[optimize] runOptimize failed", {
+        message,
+        error: e,
+        materialMode,
+        splitPreference,
+        panels: allPanels.length,
+        assignableSheets: assignableSheets.length,
+        sheetsInState: sheets.length,
+        primarySheetId,
+      });
       setError(e instanceof Error ? e.message : "Error optimizando");
     } finally {
+      console.info("[optimize] runOptimize:end", {
+        failed,
+        durationMs: Date.now() - startedAt,
+      });
       setOptimizing(false);
     }
   }
