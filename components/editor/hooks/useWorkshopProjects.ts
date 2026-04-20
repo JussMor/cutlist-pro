@@ -21,30 +21,38 @@ export interface UseWorkshopProjectsReturn {
   savedProjects: Project[];
   activeProjectId: string;
   savingProject: boolean;
-  showProjectForm: boolean;
-  projectName: string;
   loadingProjects: boolean;
-  setProjectName: (v: string) => void;
-  setShowProjectForm: (v: boolean) => void;
   setActiveProjectId: (v: string) => void;
   setSavedProjects: React.Dispatch<React.SetStateAction<Project[]>>;
   loadProjects: () => Promise<void>;
-  startSaveProject: (activeId: string, currentName: string) => void;
   persistProject: (args: {
     activeProjectId: string;
     savedProjects: Project[];
     projectName: string;
-    saveSnapshot: (payload: { id: string; name: string; createdAt: number }) => Promise<void>;
-  }) => Promise<void>;
-  saveActiveProjectChanges: (args: {
-    activeProjectId: string;
-    savedProjects: Project[];
-    saveSnapshot: (payload: { id: string; name: string; createdAt: number }) => Promise<void>;
+    saveSnapshot: (payload: {
+      id: string;
+      name: string;
+      createdAt: number;
+    }) => Promise<void>;
   }) => Promise<void>;
   removeProject: (projectId: string, activeProjectId: string) => Promise<void>;
 }
 
 import React from "react";
+
+function buildAutoProjectName(date = new Date()) {
+  const datePart = new Intl.DateTimeFormat("es-ES", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+  const timePart = new Intl.DateTimeFormat("es-ES", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+  return `Proyecto ${datePart} ${timePart}`;
+}
 
 export function useWorkshopProjects({
   setError,
@@ -52,8 +60,6 @@ export function useWorkshopProjects({
   const [savedProjects, setSavedProjects] = useState<Project[]>([]);
   const [activeProjectId, setActiveProjectId] = useState("");
   const [savingProject, setSavingProject] = useState(false);
-  const [showProjectForm, setShowProjectForm] = useState(false);
-  const [projectName, setProjectName] = useState("");
   const [loadingProjects, setLoadingProjects] = useState(false);
 
   async function loadProjects() {
@@ -68,13 +74,6 @@ export function useWorkshopProjects({
     }
   }
 
-  function startSaveProject(activeId: string, currentName: string) {
-    const current = savedProjects.find((p) => p.id === activeId);
-    setProjectName(current?.name ?? (currentName || "Proyecto manual"));
-    setShowProjectForm(true);
-    setError(null);
-  }
-
   async function persistProject({
     activeProjectId: activeId,
     savedProjects: projects,
@@ -84,10 +83,13 @@ export function useWorkshopProjects({
     activeProjectId: string;
     savedProjects: Project[];
     projectName: string;
-    saveSnapshot: (payload: { id: string; name: string; createdAt: number }) => Promise<void>;
+    saveSnapshot: (payload: {
+      id: string;
+      name: string;
+      createdAt: number;
+    }) => Promise<void>;
   }) {
-    const trimmedName = name.trim();
-    if (!trimmedName) return;
+    const trimmedName = name.trim() || buildAutoProjectName();
     const current = projects.find((p) => p.id === activeId);
     try {
       setSavingProject(true);
@@ -97,7 +99,6 @@ export function useWorkshopProjects({
         name: trimmedName,
         createdAt: current?.createdAt ?? Date.now(),
       });
-      setShowProjectForm(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error guardando proyecto");
     } finally {
@@ -105,37 +106,9 @@ export function useWorkshopProjects({
     }
   }
 
-  async function saveActiveProjectChanges({
-    activeProjectId: activeId,
-    savedProjects: projects,
-    saveSnapshot,
-  }: {
-    activeProjectId: string;
-    savedProjects: Project[];
-    saveSnapshot: (payload: { id: string; name: string; createdAt: number }) => Promise<void>;
-  }) {
-    const current = projects.find((p) => p.id === activeId);
-    if (!current) {
-      setError("Carga un proyecto guardado para actualizarlo.");
-      return;
-    }
-    try {
-      setSavingProject(true);
-      setError(null);
-      await saveSnapshot({
-        id: current.id,
-        name: current.name,
-        createdAt: current.createdAt,
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Error guardando cambios del proyecto");
-    } finally {
-      setSavingProject(false);
-    }
-  }
-
   async function removeProject(projectId: string, activeId: string) {
-    if (!window.confirm("\u00bfSeguro que deseas eliminar este proyecto?")) return;
+    if (!window.confirm("\u00bfSeguro que deseas eliminar este proyecto?"))
+      return;
     try {
       setError(null);
       await deleteProject(projectId);
@@ -144,7 +117,9 @@ export function useWorkshopProjects({
         setActiveProjectId("");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error eliminando proyecto");
+      setError(
+        err instanceof Error ? err.message : "Error eliminando proyecto",
+      );
     }
   }
 
@@ -152,17 +127,11 @@ export function useWorkshopProjects({
     savedProjects,
     activeProjectId,
     savingProject,
-    showProjectForm,
-    projectName,
     loadingProjects,
-    setProjectName,
-    setShowProjectForm,
     setActiveProjectId,
     setSavedProjects,
     loadProjects,
-    startSaveProject,
     persistProject,
-    saveActiveProjectChanges,
     removeProject,
   };
 }
@@ -232,4 +201,3 @@ export async function saveProjectToApi(
   await loadProjects();
   setActiveProjectId(project.id);
 }
-

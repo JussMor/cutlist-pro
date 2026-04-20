@@ -1,100 +1,44 @@
+import { Button } from "@/components/ui/button";
 import { Project } from "@/lib/domain/types";
+import { FolderOpen, Plus, Trash2 } from "lucide-react";
 
 interface ProjectsSectionProps {
   savedProjects: Project[];
   activeProjectId: string;
-  savingProject: boolean;
-  showProjectForm: boolean;
-  projectName: string;
   loadingProjects: boolean;
-  onStartSaveProject: () => void;
-  onSaveActiveProjectChanges: () => void;
-  onSetProjectName: (v: string) => void;
-  onSetShowProjectForm: (v: boolean) => void;
-  onPersistProject: () => void;
   onLoadProject: (projectId: string) => void;
   onRemoveProject: (projectId: string) => void;
+  onNewProject: () => void;
 }
 
 export function ProjectsSection({
   savedProjects,
   activeProjectId,
-  savingProject,
-  showProjectForm,
-  projectName,
   loadingProjects,
-  onStartSaveProject,
-  onSaveActiveProjectChanges,
-  onSetProjectName,
-  onSetShowProjectForm,
-  onPersistProject,
   onLoadProject,
   onRemoveProject,
+  onNewProject,
 }: ProjectsSectionProps) {
   return (
     <>
-      <div className="panel-title">Proyectos Guardados</div>
-      <div style={{ display: "grid", gap: 8, marginBottom: 10 }}>
-        <button
-          className="template-btn"
+      <div className="panel-title flex items-center justify-between">
+        Proyectos
+        <Button
           type="button"
-          onClick={onStartSaveProject}
-          disabled={savingProject}
+          variant="ghost"
+          size="icon-xs"
+          className="text-[#d7dde9] hover:bg-[#111723] hover:text-[#f4b450]"
+          onClick={onNewProject}
+          title="Crear un nuevo proyecto"
         >
-          {savingProject ? "Guardando..." : "Guardar proyecto"}
-        </button>
-        <button
-          className="template-btn"
-          type="button"
-          onClick={onSaveActiveProjectChanges}
-          disabled={savingProject || !activeProjectId}
-          title={
-            activeProjectId
-              ? "Guarda los cambios sobre el proyecto cargado"
-              : "Carga un proyecto para actualizarlo"
-          }
-        >
-          {savingProject ? "Guardando..." : "Guardar cambios"}
-        </button>
+          <Plus size={18} />
+        </Button>
       </div>
 
-      {showProjectForm && (
-        <div
-          className="module-form module-form-sidebar"
-          style={{ marginBottom: 10 }}
-        >
-          <input
-            className="table-input"
-            placeholder="Nombre del proyecto"
-            value={projectName}
-            onChange={(e) => onSetProjectName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") onPersistProject();
-              if (e.key === "Escape") onSetShowProjectForm(false);
-            }}
-            autoFocus
-          />
-          <div style={{ display: "flex", gap: 6 }}>
-            <button
-              type="button"
-              className="template-btn"
-              onClick={onPersistProject}
-              disabled={savingProject || !projectName.trim()}
-            >
-              {savingProject ? "Guardando..." : "Guardar"}
-            </button>
-            <button
-              type="button"
-              className="template-btn"
-              onClick={() => onSetShowProjectForm(false)}
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="template-list" style={{ marginBottom: 14 }}>
+      <div
+        className="template-list max-h-104 overflow-y-auto pr-1"
+        style={{ marginBottom: 14 }}
+      >
         {loadingProjects ? (
           <div className="muted">Cargando proyectos...</div>
         ) : savedProjects.length === 0 ? (
@@ -103,29 +47,45 @@ export function ProjectsSection({
           savedProjects.map((project) => (
             <div
               key={project.id}
-              className={`template-btn saved-assembly-card ${
-                activeProjectId === project.id ? "active" : ""
+              className={`rounded-xl border px-3 py-2.5 transition-colors ${
+                activeProjectId === project.id
+                  ? "border-[#f4b450] bg-[linear-gradient(180deg,rgba(244,180,80,0.08),rgba(244,180,80,0.03))]"
+                  : "border-[#262d3d] bg-[#0b1019]"
               }`}
             >
-              <div className="saved-assembly-title">{project.name}</div>
-              <small className="muted saved-assembly-meta">
-                {new Date(project.updatedAt).toLocaleString()}
-              </small>
-              <div className="saved-assembly-actions">
-                <button
-                  type="button"
-                  className="table-row-action preview-hide-toggle"
-                  onClick={() => onLoadProject(project.id)}
-                >
-                  Cargar
-                </button>
-                <button
-                  type="button"
-                  className="table-row-action"
-                  onClick={() => onRemoveProject(project.id)}
-                >
-                  Eliminar
-                </button>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[15px] font-semibold leading-tight text-[#d7dde9]">
+                    {project.name}
+                  </div>
+                  <div className="mt-1 text-xs text-[#7d879a]">
+                    {new Date(project.updatedAt).toLocaleString()}
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon-xs"
+                    className="rounded-lg bg-[#13203a] text-[#a9c9f7] hover:bg-[#1a2b4b]"
+                    onClick={() => onLoadProject(project.id)}
+                    title="Cargar proyecto"
+                  >
+                    <FolderOpen size={14} />
+                    <span className="sr-only">Cargar proyecto</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon-xs"
+                    className="rounded-lg bg-[#24131a] text-[#f1b0bf] hover:bg-[#321721]"
+                    onClick={() => onRemoveProject(project.id)}
+                    title="Eliminar proyecto"
+                  >
+                    <Trash2 size={14} />
+                    <span className="sr-only">Eliminar proyecto</span>
+                  </Button>
+                </div>
               </div>
             </div>
           ))
@@ -134,4 +94,3 @@ export function ProjectsSection({
     </>
   );
 }
-
