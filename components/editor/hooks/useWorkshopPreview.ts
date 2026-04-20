@@ -125,6 +125,69 @@ export function useWorkshopPreview({
     );
   }
 
+  function toCm(value: number) {
+    return value / 10;
+  }
+
+  function normalizeSheetMmToCm(sheet: StockSheet): StockSheet {
+    return { ...sheet, L: toCm(sheet.L), W: toCm(sheet.W) };
+  }
+
+  function normalizePanelMmToCm(panel: Panel): Panel {
+    return { ...panel, L: toCm(panel.L), W: toCm(panel.W) };
+  }
+
+  function normalizeSourceSheets(sourceSheets: StockSheet[]): {
+    normalized: StockSheet[];
+    converted: boolean;
+  } {
+    const shouldConvertSheets = sourceSheets.some(
+      (sheet) => sheet.L > 500 || sheet.W > 500,
+    );
+
+    if (!shouldConvertSheets) {
+      return { normalized: sourceSheets, converted: false };
+    }
+
+    return {
+      normalized: sourceSheets.map(normalizeSheetMmToCm),
+      converted: true,
+    };
+  }
+
+  function normalizePanelsForOptimization(
+    panels: Panel[],
+    sourceSheets: StockSheet[],
+    sourceWasConverted: boolean,
+  ): {
+    normalized: Panel[];
+    convertedCount: number;
+    autoDetectedCount: number;
+  } {
+    if (sourceWasConverted) {
+      return {
+        normalized: panels.map(normalizePanelMmToCm),
+        convertedCount: panels.length,
+        autoDetectedCount: panels.length,
+      };
+    }
+
+    let convertedCount = 0;
+    let autoDetectedCount = 0;
+    const normalized = panels.map((panel) => {
+      if (panelFitsAnySource(panel, sourceSheets)) return panel;
+
+      const asCm = normalizePanelMmToCm(panel);
+      if (!panelFitsAnySource(asCm, sourceSheets)) return panel;
+
+      convertedCount += 1;
+      autoDetectedCount += 1;
+      return asCm;
+    });
+
+    return { normalized, convertedCount, autoDetectedCount };
+  }
+
   async function runOptimize(options?: { bypassRoleValidation?: boolean }) {
     const startedAt = Date.now();
     let failed = false;
@@ -278,6 +341,34 @@ export function useWorkshopPreview({
           remappedPanels,
         });
       }
+
+      const normalizedSourceResult = normalizeSourceSheets(source);
+      source = normalizedSourceResult.normalized;
+
+      const normalizedPanelsResult = normalizePanelsForOptimization(
+        optimizePanels,
+        source,
+        normalizedSourceResult.converted,
+      );
+      optimizePanels = normalizedPanelsResult.normalized;
+
+      if (
+        normalizedSourceResult.converted ||
+        normalizedPanelsResult.convertedCount > 0
+      ) {
+        setWarnings((current) => [
+          ...current,
+          `Conversion de unidades aplicada: hojas ${
+            normalizedSourceResult.converted ? "mm→cm" : "sin cambio"
+          }, piezas convertidas ${normalizedPanelsResult.convertedCount} (auto detectadas: ${normalizedPanelsResult.autoDetectedCount}).`,
+        ]);
+      }
+
+      console.info("[optimize] unit normalization", {
+        convertedSheets: normalizedSourceResult.converted,
+        convertedPanels: normalizedPanelsResult.convertedCount,
+        autoDetectedPanels: normalizedPanelsResult.autoDetectedCount,
+      });
 
       const sourceSheetIds = new Set(source.map((sheet) => sheet.odooId));
       const constrainedPanels = optimizePanels.filter((panel) =>
