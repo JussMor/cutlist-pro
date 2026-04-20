@@ -96,6 +96,45 @@ export interface StockSheet {
   material: string;
 }
 
+export type GuillotineSplitPreference =
+  | "vertical-first"
+  | "horizontal-first"
+  | "short-side-first"
+  | "auto-best";
+
+export interface CutStep {
+  order: number;
+  panelId: string;
+  split: "vertical-first" | "horizontal-first";
+  orientation: "vertical" | "horizontal";
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  length: number;
+}
+
+export interface OptimizeRequestOptions {
+  splitPreference?: GuillotineSplitPreference;
+}
+
+export interface OptimizerComparisonEntry {
+  splitPreference: "vertical-first" | "horizontal-first" | "short-side-first";
+  sheetsUsed: number;
+  wastePercent: number;
+  totalCuts: number;
+  totalCutLength: number;
+}
+
+export interface CutResultOptimizerMeta {
+  requestedSplitPreference: GuillotineSplitPreference;
+  appliedSplitPreference:
+    | "vertical-first"
+    | "horizontal-first"
+    | "short-side-first";
+  compared?: OptimizerComparisonEntry[];
+}
+
 export interface PlacedPanel {
   panelId: string;
   x: number;
@@ -108,6 +147,7 @@ export interface PlacedPanel {
 export interface PlacedSheet {
   sheet: StockSheet;
   placed: PlacedPanel[];
+  cutSteps?: CutStep[];
 }
 
 export interface CostBreakdown {
@@ -129,6 +169,7 @@ export interface CutResult {
     totalBandingLength: number;
   };
   totalCost?: CostBreakdown;
+  optimizer?: CutResultOptimizerMeta;
 }
 
 export interface PricingConfig {

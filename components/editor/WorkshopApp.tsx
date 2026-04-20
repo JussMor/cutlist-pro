@@ -349,7 +349,9 @@ export function WorkshopApp() {
                 </button>
                 <OptimizerSection
                   pricing={pricing}
+                  splitPreference={pv.splitPreference}
                   setPricingField={setPricingField}
+                  setSplitPreference={pv.setSplitPreference}
                 />
               </div>
             )}

@@ -1,6 +1,7 @@
 import {
   Assembly,
   CutResult,
+  OptimizeRequestOptions,
   Panel,
   PricingConfig,
   Project,
@@ -72,11 +73,12 @@ export async function optimize(
   panels: Panel[],
   sheets: StockSheet[],
   pricingConfig: PricingConfig,
+  optimizerOptions?: OptimizeRequestOptions,
 ): Promise<CutResult> {
   const res = await fetch(`${API_BASE}/api/optimize`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ panels, sheets, pricingConfig }),
+    body: JSON.stringify({ panels, sheets, pricingConfig, optimizerOptions }),
   });
   const data = await parse<{ result: CutResult }>(res);
   return data.result;

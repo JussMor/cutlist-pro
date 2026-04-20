@@ -1,5 +1,9 @@
 import {
   CutResult,
+  CutStep,
+  GuillotineSplitPreference,
+  OptimizeRequestOptions,
+  OptimizerComparisonEntry,
   Panel,
   PlacedPanel,
   PlacedSheet,
@@ -31,7 +35,10 @@ interface PlacementCandidate {
   scoreShort: number;
   scoreLong: number;
   scoreArea: number;
+  splitPenalty: number;
 }
+
+type EffectiveSplitPreference = Exclude<GuillotineSplitPreference, "auto-best">;
 
 function contains(a: Space, b: Space): boolean {
   return (
@@ -68,7 +75,6 @@ function splitGuillotineSpace(
   const remH = space.H - used.h - kerfCm;
 
   if (split === "vertical-first") {
-    // 1) Vertical full-height cut => right strip
     if (remW > 0.1) {
       next.push({
         x: space.x + used.w + kerfCm,
@@ -77,7 +83,6 @@ function splitGuillotineSpace(
         H: space.H,
       });
     }
-    // 2) Horizontal cut inside left strip => top-left remainder
     if (remH > 0.1) {
       next.push({
         x: space.x,
@@ -87,7 +92,6 @@ function splitGuillotineSpace(
       });
     }
   } else {
-    // 1) Horizontal full-width cut => top strip
     if (remH > 0.1) {
       next.push({
         x: space.x,
@@ -96,7 +100,6 @@ function splitGuillotineSpace(
         H: remH,
       });
     }
-    // 2) Vertical cut inside lower strip => right-bottom remainder
     if (remW > 0.1) {
       next.push({
         x: space.x + used.w + kerfCm,
@@ -110,10 +113,26 @@ function splitGuillotineSpace(
   return next;
 }
 
+function splitOrderForSpace(
+  space: Space,
+  splitPreference: EffectiveSplitPreference,
+): Array<"vertical-first" | "horizontal-first"> {
+  if (splitPreference === "vertical-first") {
+    return ["vertical-first", "horizontal-first"];
+  }
+  if (splitPreference === "horizontal-first") {
+    return ["horizontal-first", "vertical-first"];
+  }
+  return space.W <= space.H
+    ? ["horizontal-first", "vertical-first"]
+    : ["vertical-first", "horizontal-first"];
+}
+
 function findBestCandidate(
   spaces: Space[],
   items: Item[],
   sheetOdooId: number,
+  splitPreference: EffectiveSplitPreference,
 ): PlacementCandidate | null {
   let best: PlacementCandidate | null = null;
 
@@ -138,19 +157,24 @@ function findBestCandidate(
         const scoreLong = Math.max(leftoverW, leftoverH);
         const scoreArea = leftoverW * leftoverH;
 
-        const splitModes: Array<"vertical-first" | "horizontal-first"> = [
-          "vertical-first",
-          "horizontal-first",
-        ];
-
-        for (const split of splitModes) {
+        const splitModes = splitOrderForSpace(s, splitPreference);
+        for (
+          let splitPenalty = 0;
+          splitPenalty < splitModes.length;
+          splitPenalty += 1
+        ) {
+          const split = splitModes[splitPenalty];
           if (
             !best ||
             scoreShort < best.scoreShort ||
             (scoreShort === best.scoreShort && scoreLong < best.scoreLong) ||
             (scoreShort === best.scoreShort &&
               scoreLong === best.scoreLong &&
-              scoreArea < best.scoreArea)
+              scoreArea < best.scoreArea) ||
+            (scoreShort === best.scoreShort &&
+              scoreLong === best.scoreLong &&
+              scoreArea === best.scoreArea &&
+              splitPenalty < best.splitPenalty)
           ) {
             best = {
               itemIndex,
@@ -162,6 +186,7 @@ function findBestCandidate(
               scoreShort,
               scoreLong,
               scoreArea,
+              splitPenalty,
             };
           }
         }
@@ -184,10 +209,105 @@ function computeBandingLengthCm(panels: Panel[]): number {
   return total;
 }
 
-export function optimizeGuillotine(
+function buildCutStepsForPlacement(
+  space: Space,
+  used: { x: number; y: number; w: number; h: number },
+  kerfCm: number,
+  split: "vertical-first" | "horizontal-first",
+  panelId: string,
+  startOrder: number,
+): CutStep[] {
+  const remW = space.W - used.w - kerfCm;
+  const remH = space.H - used.h - kerfCm;
+  const xCut = space.x + used.w + kerfCm / 2;
+  const yCut = space.y + used.h + kerfCm / 2;
+  const steps: CutStep[] = [];
+
+  if (remW > 0.1 && remH > 0.1) {
+    if (split === "vertical-first") {
+      steps.push({
+        order: startOrder,
+        panelId,
+        split,
+        orientation: "vertical",
+        x1: xCut,
+        y1: space.y,
+        x2: xCut,
+        y2: space.y + space.H,
+        length: space.H,
+      });
+      steps.push({
+        order: startOrder + 1,
+        panelId,
+        split,
+        orientation: "horizontal",
+        x1: space.x,
+        y1: yCut,
+        x2: space.x + used.w,
+        y2: yCut,
+        length: used.w,
+      });
+    } else {
+      steps.push({
+        order: startOrder,
+        panelId,
+        split,
+        orientation: "horizontal",
+        x1: space.x,
+        y1: yCut,
+        x2: space.x + space.W,
+        y2: yCut,
+        length: space.W,
+      });
+      steps.push({
+        order: startOrder + 1,
+        panelId,
+        split,
+        orientation: "vertical",
+        x1: xCut,
+        y1: space.y,
+        x2: xCut,
+        y2: space.y + used.h,
+        length: used.h,
+      });
+    }
+    return steps;
+  }
+
+  if (remW > 0.1) {
+    steps.push({
+      order: startOrder,
+      panelId,
+      split,
+      orientation: "vertical",
+      x1: xCut,
+      y1: space.y,
+      x2: xCut,
+      y2: space.y + space.H,
+      length: space.H,
+    });
+  } else if (remH > 0.1) {
+    steps.push({
+      order: startOrder,
+      panelId,
+      split,
+      orientation: "horizontal",
+      x1: space.x,
+      y1: yCut,
+      x2: space.x + space.W,
+      y2: yCut,
+      length: space.W,
+    });
+  }
+
+  return steps;
+}
+
+function optimizeWithPreference(
   panels: Panel[],
   sheets: StockSheet[],
   kerfCm: number,
+  splitPreference: EffectiveSplitPreference,
 ): CutResult {
   const items: Item[] = panels.flatMap((p) =>
     Array.from({ length: Math.max(1, p.qty) }, (_, i) => ({
@@ -196,7 +316,6 @@ export function optimizeGuillotine(
     })),
   );
 
-  // Process large items first to stabilize packing.
   items.sort((a, b) => b.L * b.W - a.L * a.W);
 
   const sheetInstances: SheetInstance[] = sheets.flatMap((sheet) => {
@@ -217,11 +336,17 @@ export function optimizeGuillotine(
     if (items.length === 0) break;
 
     const placed: PlacedPanel[] = [];
+    const cutSteps: CutStep[] = [];
+    let nextCutOrder = 1;
     let spaces: Space[] = [{ x: 0, y: 0, W: sheet.W, H: sheet.L }];
 
-    // MaxRects-like loop: place one best-fit item at a time and split free spaces.
     while (true) {
-      const candidate = findBestCandidate(spaces, items, sheet.odooId);
+      const candidate = findBestCandidate(
+        spaces,
+        items,
+        sheet.odooId,
+        splitPreference,
+      );
       if (!candidate) break;
 
       const space = spaces[candidate.spaceIndex];
@@ -253,28 +378,22 @@ export function optimizeGuillotine(
       );
       spaces = pruneSpaces([...spaces, ...splitSpaces]);
 
-      const remW = space.W - used.w - kerfCm;
-      const remH = space.H - used.h - kerfCm;
-
-      // Straight-saw metrics: only full straight cuts implied by guillotine split.
-      if (remW > 0.1 && remH > 0.1) {
-        totalCuts += 2;
-        if (candidate.split === "vertical-first") {
-          totalCutLength += space.H + used.w;
-        } else {
-          totalCutLength += space.W + used.h;
-        }
-      } else if (remW > 0.1) {
-        totalCuts += 1;
-        totalCutLength += space.H;
-      } else if (remH > 0.1) {
-        totalCuts += 1;
-        totalCutLength += space.W;
-      }
+      const steps = buildCutStepsForPlacement(
+        space,
+        used,
+        kerfCm,
+        candidate.split,
+        item.instanceId,
+        nextCutOrder,
+      );
+      nextCutOrder += steps.length;
+      cutSteps.push(...steps);
+      totalCuts += steps.length;
+      totalCutLength += steps.reduce((sum, step) => sum + step.length, 0);
     }
 
     if (placed.length > 0) {
-      placedSheets.push({ sheet, placed });
+      placedSheets.push({ sheet, placed, cutSteps });
     }
   }
 
@@ -294,6 +413,104 @@ export function optimizeGuillotine(
       totalCuts,
       totalCutLength,
       totalBandingLength: computeBandingLengthCm(panels) / 100,
+    },
+  };
+}
+
+function compareResults(a: CutResult, b: CutResult): number {
+  if (a.stats.sheetsUsed !== b.stats.sheetsUsed) {
+    return a.stats.sheetsUsed - b.stats.sheetsUsed;
+  }
+  if (Math.abs(a.stats.wastePercent - b.stats.wastePercent) > 0.0001) {
+    return a.stats.wastePercent - b.stats.wastePercent;
+  }
+  if (a.stats.totalCuts !== b.stats.totalCuts) {
+    return a.stats.totalCuts - b.stats.totalCuts;
+  }
+  if (Math.abs(a.stats.totalCutLength - b.stats.totalCutLength) > 0.0001) {
+    return a.stats.totalCutLength - b.stats.totalCutLength;
+  }
+  return a.stats.wastedArea - b.stats.wastedArea;
+}
+
+export function optimizeGuillotine(
+  panels: Panel[],
+  sheets: StockSheet[],
+  kerfCm: number,
+  options: OptimizeRequestOptions = {},
+): CutResult {
+  const requestedSplitPreference = options.splitPreference ?? "vertical-first";
+
+  if (requestedSplitPreference === "auto-best") {
+    const evaluated: Array<{
+      splitPreference: EffectiveSplitPreference;
+      result: CutResult;
+    }> = [
+      {
+        splitPreference: "vertical-first",
+        result: optimizeWithPreference(
+          panels,
+          sheets,
+          kerfCm,
+          "vertical-first",
+        ),
+      },
+      {
+        splitPreference: "horizontal-first",
+        result: optimizeWithPreference(
+          panels,
+          sheets,
+          kerfCm,
+          "horizontal-first",
+        ),
+      },
+      {
+        splitPreference: "short-side-first",
+        result: optimizeWithPreference(
+          panels,
+          sheets,
+          kerfCm,
+          "short-side-first",
+        ),
+      },
+    ];
+
+    let best = evaluated[0];
+    for (let i = 1; i < evaluated.length; i += 1) {
+      if (compareResults(evaluated[i].result, best.result) < 0) {
+        best = evaluated[i];
+      }
+    }
+
+    return {
+      ...best.result,
+      optimizer: {
+        requestedSplitPreference,
+        appliedSplitPreference: best.splitPreference,
+        compared: evaluated.map<OptimizerComparisonEntry>((entry) => ({
+          splitPreference: entry.splitPreference,
+          sheetsUsed: entry.result.stats.sheetsUsed,
+          wastePercent: entry.result.stats.wastePercent,
+          totalCuts: entry.result.stats.totalCuts,
+          totalCutLength: entry.result.stats.totalCutLength,
+        })),
+      },
+    };
+  }
+
+  const appliedSplitPreference = requestedSplitPreference;
+  const result = optimizeWithPreference(
+    panels,
+    sheets,
+    kerfCm,
+    appliedSplitPreference,
+  );
+
+  return {
+    ...result,
+    optimizer: {
+      requestedSplitPreference,
+      appliedSplitPreference,
     },
   };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { CutResult, Panel } from "@/lib/domain/types";
+import { CutResult, CutStep, Panel } from "@/lib/domain/types";
 
 interface Props {
   panels: Panel[];
@@ -10,6 +10,25 @@ interface Props {
 function getPanelLabel(panelId: string, panels: Panel[]): string {
   const match = panels.find((panel) => panelId.startsWith(`${panel.id}-`));
   return match?.label ?? panelId;
+}
+
+function splitPreferenceLabel(value?: string): string {
+  if (value === "vertical-first") return "Normal";
+  if (value === "horizontal-first") return "Invertida";
+  if (value === "short-side-first") return "Lado menor";
+  if (value === "auto-best") return "Auto optimo";
+  return "N/D";
+}
+
+function cutStepStroke(step: CutStep): string {
+  return step.orientation === "vertical" ? "#7dd3fc" : "#c4b5fd";
+}
+
+function cutStepMidpoint(step: CutStep): { x: number; y: number } {
+  return {
+    x: (step.x1 + step.x2) / 2,
+    y: (step.y1 + step.y2) / 2,
+  };
 }
 
 export function SheetLayouts({ panels, result }: Props) {
@@ -29,7 +48,21 @@ export function SheetLayouts({ panels, result }: Props) {
         </span>
         <span>{result.stats.wastePercent.toFixed(1)}% desperdicio</span>
         <span>{result.stats.totalCuts} cortes</span>
+        <span>
+          modo: {splitPreferenceLabel(result.optimizer?.appliedSplitPreference)}
+        </span>
       </div>
+      {result.optimizer?.compared && result.optimizer.compared.length > 0 && (
+        <div className="mt-1 grid gap-1 text-xs text-slate-400">
+          {result.optimizer.compared.map((entry) => (
+            <span key={entry.splitPreference}>
+              {splitPreferenceLabel(entry.splitPreference)}: {entry.sheetsUsed}{" "}
+              plancha(s), {entry.wastePercent.toFixed(1)}% desperdicio,{" "}
+              {entry.totalCuts} cortes
+            </span>
+          ))}
+        </div>
+      )}
 
       {result.sheets.map((sheetResult, index) => (
         <div
@@ -92,7 +125,57 @@ export function SheetLayouts({ panels, result }: Props) {
                 </g>
               );
             })}
+
+            {(sheetResult.cutSteps ?? []).map((step) => {
+              const mid = cutStepMidpoint(step);
+              return (
+                <g key={`cut-${step.order}-${step.panelId}`}>
+                  <line
+                    x1={step.x1}
+                    y1={step.y1}
+                    x2={step.x2}
+                    y2={step.y2}
+                    stroke={cutStepStroke(step)}
+                    strokeWidth="0.65"
+                    strokeDasharray="2 1"
+                  />
+                  <circle
+                    cx={mid.x}
+                    cy={mid.y}
+                    r="1.8"
+                    fill="#0b0f17"
+                    stroke={cutStepStroke(step)}
+                    strokeWidth="0.5"
+                  />
+                  <text
+                    x={mid.x}
+                    y={mid.y + 0.7}
+                    fontSize="2.8"
+                    textAnchor="middle"
+                    fill="#d7dde9"
+                  >
+                    {step.order}
+                  </text>
+                </g>
+              );
+            })}
           </svg>
+
+          <div className="mt-3 grid max-h-40 gap-1 overflow-auto pr-1 text-xs text-slate-300">
+            {(sheetResult.cutSteps ?? []).length === 0 && (
+              <span className="text-slate-500">
+                Sin pasos de corte registrados.
+              </span>
+            )}
+            {(sheetResult.cutSteps ?? []).map((step) => (
+              <span key={`step-${step.order}-${step.panelId}`}>
+                Paso {step.order}: corte{" "}
+                {step.orientation === "vertical" ? "vertical" : "horizontal"} (
+                {step.length.toFixed(1)} cm) - pieza{" "}
+                {getPanelLabel(step.panelId, panels)}
+              </span>
+            ))}
+          </div>
         </div>
       ))}
     </div>

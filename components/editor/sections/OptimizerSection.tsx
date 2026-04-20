@@ -1,20 +1,53 @@
-import { PricingConfig } from "@/lib/domain/types";
+import { GuillotineSplitPreference, PricingConfig } from "@/lib/domain/types";
 import { FieldHelpTooltip } from "./FieldHelpTooltip";
 
 interface OptimizerSectionProps {
   pricing: PricingConfig;
+  splitPreference: GuillotineSplitPreference;
   setPricingField: <K extends keyof PricingConfig>(
     key: K,
     value: PricingConfig[K],
   ) => void;
+  setSplitPreference: (value: GuillotineSplitPreference) => void;
 }
 
 export function OptimizerSection({
   pricing,
+  splitPreference,
   setPricingField,
+  setSplitPreference,
 }: OptimizerSectionProps) {
   return (
     <div className="field-grid">
+      <div className="field" style={{ gridColumn: "1 / -1" }}>
+        <label className="inline-flex items-center gap-1.5">
+          Direccion de corte
+          <FieldHelpTooltip content="Normal usa vertical primero. Invertida usa horizontal primero. Auto compara normal, invertida y lado menor primero para elegir la mas optima." />
+        </label>
+        <div className="stock-mode-row">
+          <button
+            type="button"
+            className={`mode-chip ${splitPreference === "vertical-first" ? "active" : ""}`}
+            onClick={() => setSplitPreference("vertical-first")}
+          >
+            Normal
+          </button>
+          <button
+            type="button"
+            className={`mode-chip ${splitPreference === "horizontal-first" ? "active" : ""}`}
+            onClick={() => setSplitPreference("horizontal-first")}
+          >
+            Invertida
+          </button>
+          <button
+            type="button"
+            className={`mode-chip ${splitPreference === "auto-best" ? "active" : ""}`}
+            onClick={() => setSplitPreference("auto-best")}
+          >
+            Auto optimo
+          </button>
+        </div>
+      </div>
       <div className="field">
         <label htmlFor="kerfCm" className="inline-flex items-center gap-1.5">
           Kerf (cm)

@@ -1,6 +1,7 @@
 import {
   Assembly,
   CutResult,
+  OptimizeRequestOptions,
   Panel,
   PricingConfig,
   Project,
@@ -11,16 +12,20 @@ import {
 import { optimizeGuillotine } from "../lib/optimizer/guillotine";
 import { calculateCost } from "../lib/pricing";
 
+import {
+  deleteAssembly,
+  getAssemblies,
+  upsertAssembly,
+} from "./assemblies-repo";
 import { Env } from "./env";
 import { json } from "./http";
 import { fetchOdooSheets } from "./odoo";
 import {
-  getProjects,
-  upsertProject,
   deleteProject,
+  getProjects,
   getProjectWorkspace,
+  upsertProject,
 } from "./projects-repo";
-import { getAssemblies, upsertAssembly, deleteAssembly } from "./assemblies-repo";
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
@@ -163,12 +168,14 @@ export default {
           panels: Panel[];
           sheets: StockSheet[];
           pricingConfig: PricingConfig;
+          optimizerOptions?: OptimizeRequestOptions;
         };
 
         const cut = optimizeGuillotine(
           body.panels,
           body.sheets,
           body.pricingConfig.kerfCm,
+          body.optimizerOptions,
         );
         const totalCost = calculateCost(cut, body.pricingConfig);
         return json({ result: { ...cut, totalCost } });

@@ -90,7 +90,7 @@ export function MultiSelect({
                 >
                   <Checkbox
                     checked={selectedIds.includes(option.id)}
-                    onCheckedChange={(checked) => {
+                    onCheckedChange={() => {
                       onToggle(option.id);
                     }}
                     onClick={(e) => e.stopPropagation()}

@@ -1,16 +1,16 @@
 import { fetchSheets, optimize } from "@/lib/api/client";
 import { preparePanelsByRole } from "@/lib/domain/roleRules";
 import {
+  ArtifactInstance,
   CutResult,
+  GuillotineSplitPreference,
   MaterialMode,
   ModuleNode,
   Panel,
   PricingConfig,
   StockSheet,
-  ArtifactInstance,
 } from "@/lib/domain/types";
-import { useMemo, useState } from "react";
-import React from "react";
+import React, { useMemo, useState } from "react";
 import {
   buildManualIsoLayout,
   materialPreviewColor,
@@ -46,9 +46,13 @@ export interface UseWorkshopPreviewReturn {
   optimizing: boolean;
   opsSummary: string | null;
   warnings: string[];
+  splitPreference: GuillotineSplitPreference;
   previewColorMode: PreviewColorMode;
   coloredIsoPanels: ReturnType<typeof buildManualIsoLayout>;
   runOptimize: () => Promise<void>;
+  setSplitPreference: React.Dispatch<
+    React.SetStateAction<GuillotineSplitPreference>
+  >;
   setPreviewColorMode: React.Dispatch<React.SetStateAction<PreviewColorMode>>;
   setWarnings: React.Dispatch<React.SetStateAction<string[]>>;
 }
@@ -71,6 +75,8 @@ export function useWorkshopPreview({
   const [optimizing, setOptimizing] = useState(false);
   const [opsSummary, setOpsSummary] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [splitPreference, setSplitPreference] =
+    useState<GuillotineSplitPreference>("vertical-first");
   const [previewColorMode, setPreviewColorMode] =
     useState<PreviewColorMode>("material");
 
@@ -120,15 +126,21 @@ export function useWorkshopPreview({
 
       const prepared = preparePanelsByRole(allPanels, pricing, modules);
       if (prepared.warnings.length > 0) setWarnings(prepared.warnings);
-      if (prepared.issues.length > 0) throw new Error(prepared.issues.join(" "));
+      if (prepared.issues.length > 0)
+        throw new Error(prepared.issues.join(" "));
 
       const opsByType = prepared.ops.reduce<Record<string, number>>(
-        (acc, op) => { acc[op.type] = (acc[op.type] ?? 0) + 1; return acc; },
+        (acc, op) => {
+          acc[op.type] = (acc[op.type] ?? 0) + 1;
+          return acc;
+        },
         {},
       );
       if (prepared.ops.length > 0) {
         setOpsSummary(
-          Object.entries(opsByType).map(([t, c]) => `${t}: ${c}`).join(" | "),
+          Object.entries(opsByType)
+            .map(([t, c]) => `${t}: ${c}`)
+            .join(" | "),
         );
       }
 
@@ -139,11 +151,14 @@ export function useWorkshopPreview({
         setSheets(loaded);
         source =
           materialMode === "single"
-            ? loaded.filter((s) => s.odooId === (primarySheetId ?? loaded[0]?.odooId))
+            ? loaded.filter(
+                (s) => s.odooId === (primarySheetId ?? loaded[0]?.odooId),
+              )
             : loaded;
       }
 
-      if (source.length === 0) throw new Error("Selecciona al menos un tablero para optimizar");
+      if (source.length === 0)
+        throw new Error("Selecciona al menos un tablero para optimizar");
 
       if (materialMode === "mixed") {
         const canonicalByGroup = new Map<string, number>();
@@ -163,12 +178,17 @@ export function useWorkshopPreview({
         });
         optimizePanels = prepared.panels.map((panel) => {
           if (!panel.stockSheetId) return panel;
-          const cId = canonicalBySheetId.get(panel.stockSheetId) ?? panel.stockSheetId;
-          return cId === panel.stockSheetId ? panel : { ...panel, stockSheetId: cId };
+          const cId =
+            canonicalBySheetId.get(panel.stockSheetId) ?? panel.stockSheetId;
+          return cId === panel.stockSheetId
+            ? panel
+            : { ...panel, stockSheetId: cId };
         });
       }
 
-      const opt = await optimize(optimizePanels, source, pricing);
+      const opt = await optimize(optimizePanels, source, pricing, {
+        splitPreference,
+      });
       setResult(opt);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error optimizando");
@@ -181,11 +201,12 @@ export function useWorkshopPreview({
     optimizing,
     opsSummary,
     warnings,
+    splitPreference,
     previewColorMode,
     coloredIsoPanels,
     runOptimize,
+    setSplitPreference,
     setPreviewColorMode,
     setWarnings,
   };
 }
-
