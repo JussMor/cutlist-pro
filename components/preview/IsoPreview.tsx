@@ -2,7 +2,7 @@
 
 import { IsoPanel } from "@/lib/domain/types";
 import { ISO } from "@/lib/preview/iso";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 interface Props {
   panels: IsoPanel[];
@@ -104,6 +104,7 @@ function zoomedViewBox(baseViewBox: string, zoom: number): string {
 
 export function IsoPreview({ panels }: Props) {
   const [zoom, setZoom] = useState(1);
+  const shellRef = useRef<HTMLDivElement | null>(null);
   const sorted = ISO.sortPanels(panels);
   const scale = 1;
   const faces = useMemo(
@@ -128,6 +129,27 @@ export function IsoPreview({ panels }: Props) {
     setZoom(1);
   }, [panels]);
 
+  useEffect(() => {
+    const node = shellRef.current;
+    if (!node) return;
+
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      if (event.deltaY < 0) {
+        setZoom((current) => Math.min(4, Number((current + 0.15).toFixed(2))));
+        return;
+      }
+
+      setZoom((current) => Math.max(0.5, Number((current - 0.15).toFixed(2))));
+    };
+
+    node.addEventListener("wheel", onWheel, { passive: false });
+
+    return () => {
+      node.removeEventListener("wheel", onWheel);
+    };
+  }, []);
+
   function zoomIn() {
     setZoom((current) => Math.min(4, Number((current + 0.15).toFixed(2))));
   }
@@ -141,14 +163,7 @@ export function IsoPreview({ panels }: Props) {
   }
 
   return (
-    <div
-      className="iso-preview-shell"
-      onWheel={(event) => {
-        event.preventDefault();
-        if (event.deltaY < 0) zoomIn();
-        else zoomOut();
-      }}
-    >
+    <div className="iso-preview-shell" ref={shellRef}>
       <div className="iso-zoom-controls">
         <button
           type="button"
