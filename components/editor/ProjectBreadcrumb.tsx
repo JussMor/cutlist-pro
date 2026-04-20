@@ -8,8 +8,8 @@ import { RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface ProjectBreadcrumbProps {
-  activeProjectName: string | null;
-  savingProject: boolean;
+  activeName: string | null;
+  saving: boolean;
   onSaveName: (nextName: string) => Promise<void>;
   rootLabel: string;
 }
@@ -20,8 +20,8 @@ function shortProjectName(name: string | null) {
 }
 
 export function ProjectBreadcrumb({
-  activeProjectName,
-  savingProject,
+  activeName,
+  saving,
   onSaveName,
   rootLabel,
 }: ProjectBreadcrumbProps) {
@@ -30,9 +30,9 @@ export function ProjectBreadcrumb({
 
   useEffect(() => {
     if (!isEditing) {
-      setDraftName(activeProjectName ?? "");
+      setDraftName(activeName ?? "");
     }
-  }, [activeProjectName, isEditing]);
+  }, [activeName, isEditing]);
 
   const submitName = async () => {
     await onSaveName(draftName);
@@ -40,7 +40,7 @@ export function ProjectBreadcrumb({
   };
 
   const cancelEdit = () => {
-    setDraftName(activeProjectName ?? "");
+    setDraftName(activeName ?? "");
     setIsEditing(false);
   };
 
@@ -58,7 +58,7 @@ export function ProjectBreadcrumb({
             value={draftName}
             onChange={(e) => setDraftName(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !savingProject) void submitName();
+              if (e.key === "Enter" && !saving) void submitName();
               if (e.key === "Escape") cancelEdit();
             }}
             autoFocus
@@ -69,9 +69,9 @@ export function ProjectBreadcrumb({
             size="sm"
             className="h-7 border-[#2f3850] bg-transparent px-2 text-xs text-[#d7dde9] hover:border-[#f4b450] hover:bg-[#121a28]"
             onClick={() => void submitName()}
-            disabled={savingProject}
+            disabled={saving}
           >
-            {savingProject ? "Guardando..." : "Guardar"}
+            {saving ? "Guardando..." : "Guardar"}
           </Button>
           <Button
             type="button"
@@ -93,10 +93,10 @@ export function ProjectBreadcrumb({
               onClick={() => setIsEditing(true)}
               className="h-7 max-w-xs justify-start truncate px-2 text-left text-sm font-semibold text-[#d7dde9] hover:bg-[#111723] hover:text-[#f4b450]"
             >
-              {shortProjectName(activeProjectName)}
+              {shortProjectName(activeName)}
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{activeProjectName ?? "Sin guardar"}</TooltipContent>
+          <TooltipContent>{activeName ?? "Sin guardar"}</TooltipContent>
         </Tooltip>
       )}
     </div>

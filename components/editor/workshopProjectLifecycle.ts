@@ -51,6 +51,7 @@ interface ResetWorkshopForNewProjectArgs {
   setIsQuoteOpen: (open: boolean) => void;
   setActiveProjectId: (id: string) => void;
   setActiveAssemblyId: (id: string) => void;
+  setShowAssemblyForm: (show: boolean) => void;
   setWarnings: (warnings: string[]) => void;
   setShowModuleForm: (show: boolean) => void;
 }
@@ -109,13 +110,15 @@ export async function loadProjectIntoWorkshop({
     setPrimarySheetId(ws.primarySheetId ?? null);
     setMaterialMode(ws.materialMode ?? "single");
     setPreviewColorMode(ws.previewColorMode ?? "material");
-    setGlobalDims(ws.globalDims ?? { L: 244, W: 244 });
+    setGlobalDims(ws.globalDims ?? { L: 244, W: 215 });
     setArtifacts(ws.artifacts ?? []);
     setActiveAssemblyId("");
   } else if (project.cutResult?.sheets?.length) {
     const ids = project.cutResult.sheets.map((entry) => entry.sheet.odooId);
-    setSelectedSheetIds(Array.from(new Set(ids)));
+    // For new projects: set primary sheet for single mode, but leave selectedSheetIds empty
+    // User should explicitly select sheets in mixed mode
     setPrimarySheetId(ids[0] ?? null);
+    setMaterialMode("single");
     setArtifacts([]);
     setActiveAssemblyId("");
   } else {
@@ -142,6 +145,7 @@ export function resetWorkshopForNewProject({
   setIsQuoteOpen,
   setActiveProjectId,
   setActiveAssemblyId,
+  setShowAssemblyForm,
   setWarnings,
   setShowModuleForm,
 }: ResetWorkshopForNewProjectArgs) {
@@ -159,6 +163,7 @@ export function resetWorkshopForNewProject({
   setIsQuoteOpen(false);
   setActiveProjectId("");
   setActiveAssemblyId("");
+  setShowAssemblyForm(false);
   setWarnings([]);
   setShowModuleForm(false);
 }

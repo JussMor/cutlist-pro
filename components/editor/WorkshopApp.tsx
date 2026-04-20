@@ -15,7 +15,9 @@ import { CutlistTable } from "../cutlist/CutlistTable";
 import { SheetLayouts } from "../cutlist/SheetLayouts";
 import { CostBreakdown } from "../pricing/CostBreakdown";
 import { ProjectBreadcrumb } from "./ProjectBreadcrumb";
+import { SheetSyncButtons } from "./SheetSyncButtons";
 import { WorkshopSidebar } from "./WorkshopSidebar";
+import { usePersistentState } from "./hooks/usePersistentState";
 import { useWorkshopAssemblies } from "./hooks/useWorkshopAssemblies";
 import { useWorkshopModules } from "./hooks/useWorkshopModules";
 import { useWorkshopPanels } from "./hooks/useWorkshopPanels";
@@ -42,12 +44,30 @@ export function WorkshopApp() {
   );
 
   // UI collapse state
-  const [isPreviewOpen, setIsPreviewOpen] = useState(true);
-  const [isCutlistOpen, setIsCutlistOpen] = useState(true);
-  const [isQuoteOpen, setIsQuoteOpen] = useState(false);
-  const [isActionsOpen, setIsActionsOpen] = useState(true);
-  const [isPricingOpen, setIsPricingOpen] = useState(true);
-  const [isSheetsOpen, setIsSheetsOpen] = useState(true);
+  const [isPreviewOpen, setIsPreviewOpen] = usePersistentState(
+    "workshop:collapse:preview-v1",
+    true,
+  );
+  const [isCutlistOpen, setIsCutlistOpen] = usePersistentState(
+    "workshop:collapse:cutlist-v1",
+    true,
+  );
+  const [isQuoteOpen, setIsQuoteOpen] = usePersistentState(
+    "workshop:collapse:quote-v1",
+    false,
+  );
+  const [isActionsOpen, setIsActionsOpen] = usePersistentState(
+    "workshop:collapse:actions-v1",
+    true,
+  );
+  const [isPricingOpen, setIsPricingOpen] = usePersistentState(
+    "workshop:collapse:pricing-v1",
+    true,
+  );
+  const [isSheetsOpen, setIsSheetsOpen] = usePersistentState(
+    "workshop:collapse:sheets-v1",
+    true,
+  );
 
   // ── Hooks (order preserved: sheets → panels → modules → preview → projects → assemblies)
   const sh = useWorkshopSheets({ setResult: () => setResult(null), setError });
@@ -97,12 +117,9 @@ export function WorkshopApp() {
   useEffect(() => {
     if (sh.sheets.length === 0) return;
     sh.setSelectedSheetIds((cur) => {
-      const valid = cur.filter((id) =>
+      return cur.filter((id) =>
         sh.sheets.some((s: StockSheet) => s.odooId === id),
       );
-      return valid.length > 0
-        ? valid
-        : sh.sheets.map((s: StockSheet) => s.odooId);
     });
     sh.setPrimarySheetId((cur) => {
       if (cur && sh.sheets.some((s: StockSheet) => s.odooId === cur))
@@ -130,6 +147,14 @@ export function WorkshopApp() {
       null,
     [pr.savedProjects, pr.activeProjectId],
   );
+  const activeAssembly = useMemo(
+    () =>
+      as.customTemplates.find(
+        (assembly) => assembly.id === as.activeAssemblyId,
+      ) ?? null,
+    [as.customTemplates, as.activeAssemblyId],
+  );
+  const isAssemblyContext = as.showAssemblyForm || Boolean(as.activeAssemblyId);
 
   // ── Orchestrators (cross-hook) ──
   async function saveProjectSnapshot(payload: {
@@ -176,6 +201,7 @@ export function WorkshopApp() {
       setWarnings: pv.setWarnings,
       setActiveProjectId: pr.setActiveProjectId,
     });
+    as.setShowAssemblyForm(false);
   }
 
   const startNewProject = () => {
@@ -194,6 +220,7 @@ export function WorkshopApp() {
       setIsQuoteOpen,
       setActiveProjectId: pr.setActiveProjectId,
       setActiveAssemblyId: as.setActiveAssemblyId,
+      setShowAssemblyForm: as.setShowAssemblyForm,
       setWarnings: pv.setWarnings,
       setShowModuleForm: mo.setShowModuleForm,
     });
@@ -220,6 +247,15 @@ export function WorkshopApp() {
     });
   }
 
+  async function saveAssemblyNameInline(nextName: string) {
+    await as.persistAssembly({
+      editablePanels: pa.editablePanels,
+      customTemplates: as.customTemplates,
+      activeAssemblyId: as.activeAssemblyId,
+      assemblyName: nextName,
+    });
+  }
+
   const C = ({ open }: { open: boolean }) =>
     open ? (
       <ChevronDown className="collapse-icon" size={18} />
@@ -243,10 +279,16 @@ export function WorkshopApp() {
 
       <main className="main">
         <ProjectBreadcrumb
-          activeProjectName={activeProject?.name ?? null}
-          savingProject={pr.savingProject}
-          onSaveName={saveProjectNameInline}
-          rootLabel={as.showAssemblyForm ? "Plantilla" : "Proyecto"}
+          activeName={
+            isAssemblyContext
+              ? (activeAssembly?.name ?? null)
+              : (activeProject?.name ?? null)
+          }
+          saving={isAssemblyContext ? as.savingAssembly : pr.savingProject}
+          onSaveName={
+            isAssemblyContext ? saveAssemblyNameInline : saveProjectNameInline
+          }
+          rootLabel={isAssemblyContext ? "Plantilla" : "Proyecto"}
         />
         <div className="content-grid">
           <section className="card preview-card">
@@ -297,23 +339,6 @@ export function WorkshopApp() {
                 <button
                   className="template-btn"
                   type="button"
-                  onClick={() => sh.loadSheets(false)}
-                >
-                  {sh.loadingSheets
-                    ? "Consultando Odoo..."
-                    : "Cargar tableros Odoo"}
-                </button>
-                <button
-                  className="template-btn"
-                  type="button"
-                  onClick={() => sh.loadSheets(true)}
-                  style={{ opacity: 0.7, fontSize: 12 }}
-                >
-                  ↺ Forzar actualización
-                </button>
-                <button
-                  className="template-btn"
-                  type="button"
                   onClick={pv.runOptimize}
                 >
                   {pv.optimizing ? "Optimizando..." : "Optimizar corte"}
@@ -337,15 +362,28 @@ export function WorkshopApp() {
               />
             )}
 
-            <button
-              type="button"
-              className="collapse-toggle"
-              onClick={() => setIsSheetsOpen((v) => !v)}
-              style={{ marginTop: 18 }}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginTop: 18,
+              }}
             >
-              <span>Tableros a usar</span>
-              <C open={isSheetsOpen} />
-            </button>
+              <button
+                type="button"
+                className="collapse-toggle"
+                onClick={() => setIsSheetsOpen((v) => !v)}
+                style={{ marginTop: 0, flex: 1 }}
+              >
+                <span>Tableros a usar</span>
+                <C open={isSheetsOpen} />
+              </button>
+              <SheetSyncButtons
+                loadingSheets={sh.loadingSheets}
+                onLoadSheets={sh.loadSheets}
+              />
+            </div>
             {isSheetsOpen && (
               <>
                 <StockSelector

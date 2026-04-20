@@ -3,13 +3,8 @@ import {
   fetchAssemblies,
   saveAssembly,
 } from "@/lib/api/client";
-import {
-  Assembly,
-  Panel,
-  TemplateCategory,
-} from "@/lib/domain/types";
-import { useState } from "react";
-import React from "react";
+import { Assembly, Panel } from "@/lib/domain/types";
+import React, { useState } from "react";
 import { normalizePanelsModule } from "../workshopPanelHelpers";
 
 export interface UseWorkshopAssembliesReturn {
@@ -17,16 +12,15 @@ export interface UseWorkshopAssembliesReturn {
   activeAssemblyId: string;
   savingAssembly: boolean;
   showAssemblyForm: boolean;
-  assemblyName: string;
-  assemblyDescription: string;
-  assemblyCategory: TemplateCategory;
   setShowAssemblyForm: React.Dispatch<React.SetStateAction<boolean>>;
-  setAssemblyName: React.Dispatch<React.SetStateAction<string>>;
-  setAssemblyDescription: React.Dispatch<React.SetStateAction<string>>;
-  setAssemblyCategory: React.Dispatch<React.SetStateAction<TemplateCategory>>;
   setActiveAssemblyId: React.Dispatch<React.SetStateAction<string>>;
   loadCustomTemplates: () => Promise<void>;
-  saveCurrentAsAssembly: (editablePanels: Panel[]) => Promise<void>;
+  persistAssembly: (args: {
+    editablePanels: Panel[];
+    customTemplates: Assembly[];
+    activeAssemblyId: string;
+    assemblyName: string;
+  }) => Promise<void>;
   updateActiveAssembly: (editablePanels: Panel[]) => Promise<void>;
   removeAssembly: (assemblyId: string) => Promise<void>;
   loadAssembly: (args: {
@@ -48,10 +42,20 @@ export function useWorkshopAssemblies({
   const [activeAssemblyId, setActiveAssemblyId] = useState("");
   const [savingAssembly, setSavingAssembly] = useState(false);
   const [showAssemblyForm, setShowAssemblyForm] = useState(false);
-  const [assemblyName, setAssemblyName] = useState("");
-  const [assemblyDescription, setAssemblyDescription] = useState("");
-  const [assemblyCategory, setAssemblyCategory] =
-    useState<TemplateCategory>("almacenaje");
+
+  function buildAutoAssemblyName(date = new Date()) {
+    const datePart = new Intl.DateTimeFormat("es-ES", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(date);
+    const timePart = new Intl.DateTimeFormat("es-ES", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(date);
+    return `Plantilla ${datePart} ${timePart}`;
+  }
 
   async function loadCustomTemplates() {
     try {
@@ -62,27 +66,38 @@ export function useWorkshopAssemblies({
     }
   }
 
-  async function saveCurrentAsAssembly(editablePanels: Panel[]) {
-    const name = assemblyName.trim();
-    if (!name || editablePanels.length === 0) return;
+  async function persistAssembly({
+    editablePanels,
+    customTemplates: templates,
+    activeAssemblyId: activeId,
+    assemblyName,
+  }: {
+    editablePanels: Panel[];
+    customTemplates: Assembly[];
+    activeAssemblyId: string;
+    assemblyName: string;
+  }) {
+    if (editablePanels.length === 0) return;
+
+    const current = templates.find((t) => t.id === activeId);
+    const name =
+      assemblyName.trim() || current?.name || buildAutoAssemblyName();
 
     setSavingAssembly(true);
     try {
       const now = Date.now();
       const payload: Assembly = {
-        id: `asm_${now}`,
+        id: current?.id ?? `asm_${now}`,
         name,
-        description: assemblyDescription.trim() || undefined,
+        description: current?.description,
         panels: editablePanels,
         isCustom: true,
-        category: assemblyCategory,
-        createdAt: now,
+        category: current?.category ?? "almacenaje",
+        createdAt: current?.createdAt ?? now,
         updatedAt: now,
       };
       await saveAssembly(payload);
       await loadCustomTemplates();
-      setAssemblyName("");
-      setAssemblyDescription("");
       setShowAssemblyForm(false);
       setActiveAssemblyId(payload.id);
     } catch (err) {
@@ -120,7 +135,6 @@ export function useWorkshopAssemblies({
   }
 
   async function removeAssembly(assemblyId: string) {
-    if (!window.confirm("\u00bfSeguro que deseas eliminar este ensamble?")) return;
     try {
       await deleteAssembly(assemblyId);
       await loadCustomTemplates();
@@ -155,19 +169,12 @@ export function useWorkshopAssemblies({
     activeAssemblyId,
     savingAssembly,
     showAssemblyForm,
-    assemblyName,
-    assemblyDescription,
-    assemblyCategory,
     setShowAssemblyForm,
-    setAssemblyName,
-    setAssemblyDescription,
-    setAssemblyCategory,
     setActiveAssemblyId,
     loadCustomTemplates,
-    saveCurrentAsAssembly,
+    persistAssembly,
     updateActiveAssembly,
     removeAssembly,
     loadAssembly,
   };
 }
-

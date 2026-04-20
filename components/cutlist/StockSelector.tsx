@@ -1,5 +1,12 @@
 "use client";
 
+import { MultiSelect } from "@/components/ui/multi-select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
 import { MaterialMode, StockSheet } from "@/lib/domain/types";
 
 const STANDARD_DIMS = [
@@ -33,6 +40,10 @@ export function StockSelector({
   onGlobalDimsChange,
 }: Props) {
   const dimsKey = `${globalDims.L}x${globalDims.W}`;
+  const singleModeSheets =
+    selectedSheetIds.length > 0
+      ? sheets.filter((sheet) => selectedSheetIds.includes(sheet.odooId))
+      : sheets;
 
   return (
     <div className="stock-selector">
@@ -53,79 +64,79 @@ export function StockSelector({
         </button>
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          marginTop: 10,
-          alignItems: "flex-end",
-        }}
-      >
-        {materialMode === "single" && selectedSheetIds.length > 0 && (
-          <div className="field" style={{ flex: 1 }}>
-            <label htmlFor="primarySheet">Melamina principal</label>
-            <select
-              id="primarySheet"
-              className="table-input"
-              value={primarySheetId ?? ""}
-              onChange={(event) =>
-                onPrimarySheetChange(Number(event.target.value))
-              }
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        {materialMode === "single" && sheets.length > 0 && (
+          <div style={{ flex: 1 }}>
+            <label className="block text-xs font-medium text-[#d7dde9] mb-1.5">
+              Melamina principal
+            </label>
+            <Select
+              value={primarySheetId?.toString() ?? ""}
+              onValueChange={(value) => onPrimarySheetChange(Number(value))}
             >
-              {sheets
-                .filter((sheet) => selectedSheetIds.includes(sheet.odooId))
-                .map((sheet) => (
-                  <option key={sheet.odooId} value={sheet.odooId}>
-                    {sheet.name}
-                  </option>
+              <SelectTrigger>
+                {sheets.find((s) => s.odooId === primarySheetId)?.name ||
+                  "Seleccionar"}
+              </SelectTrigger>
+              <SelectContent>
+                {singleModeSheets.map((sheet) => (
+                  <SelectItem
+                    key={sheet.odooId}
+                    value={sheet.odooId.toString()}
+                  >
+                    <div className="grid gap-0.5">
+                      <div>{sheet.name}</div>
+                      <div className="text-xs text-[#989faa]">
+                        {sheet.qty} plancha{sheet.qty !== 1 ? "s" : ""} · $
+                        {sheet.pricePerSheet.toFixed(2)}
+                      </div>
+                    </div>
+                  </SelectItem>
                 ))}
-            </select>
+              </SelectContent>
+            </Select>
           </div>
         )}
-        <div className="field" style={{ flex: 1 }}>
-          <label htmlFor="globalDims">Medidas plancha</label>
-          <select
-            id="globalDims"
-            className="table-input"
+        {materialMode === "mixed" && (
+          <div style={{ flex: 1 }}>
+            <label className="block text-xs font-medium text-[#d7dde9] mb-1.5">
+              Materiales disponibles
+            </label>
+            <MultiSelect
+              options={sheets.map((sheet) => ({
+                id: sheet.odooId,
+                label: sheet.name,
+                subtitle: `${sheet.qty} plancha${sheet.qty !== 1 ? "s" : ""} · $${sheet.pricePerSheet.toFixed(2)}`,
+              }))}
+              selectedIds={selectedSheetIds}
+              onToggle={(id) => onToggleSheet(Number(id))}
+              placeholder="Seleccionar materiales"
+            />
+          </div>
+        )}
+        <div style={{ flex: 1 }}>
+          <label className="block text-xs font-medium text-[#d7dde9] mb-1.5">
+            Medidas plancha
+          </label>
+          <Select
             value={dimsKey}
-            onChange={(e) => {
+            onValueChange={(value) => {
               const found = STANDARD_DIMS.find(
-                (d) => `${d.L}x${d.W}` === e.target.value,
+                (d) => `${d.L}x${d.W}` === value,
               );
               if (found) onGlobalDimsChange(found.L, found.W);
             }}
           >
-            {STANDARD_DIMS.map((d) => (
-              <option key={`${d.L}x${d.W}`} value={`${d.L}x${d.W}`}>
-                {d.label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger>{dimsKey.replace("x", " × ")} cm</SelectTrigger>
+            <SelectContent>
+              {STANDARD_DIMS.map((d) => (
+                <SelectItem key={`${d.L}x${d.W}`} value={`${d.L}x${d.W}`}>
+                  {d.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-      </div>
-
-      <div className="stock-list">
-        {sheets.map((sheet) => {
-          const checked = selectedSheetIds.includes(sheet.odooId);
-          return (
-            <label
-              key={sheet.odooId}
-              className={`stock-option ${checked ? "active" : ""}`}
-            >
-              <input
-                type="checkbox"
-                checked={checked}
-                onChange={() => onToggleSheet(sheet.odooId)}
-              />
-              <div className="stock-option-body">
-                <strong>{sheet.name}</strong>
-                <span className="muted">
-                  {sheet.qty} planchas · ${sheet.pricePerSheet.toFixed(2)}
-                </span>
-              </div>
-            </label>
-          );
-        })}
       </div>
     </div>
   );

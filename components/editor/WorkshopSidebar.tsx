@@ -1,6 +1,10 @@
+"use client";
+
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useWorkshopAssemblies } from "./hooks/useWorkshopAssemblies";
 import { useWorkshopModules } from "./hooks/useWorkshopModules";
 import { useWorkshopPanels } from "./hooks/useWorkshopPanels";
+import { usePersistentState } from "./hooks/usePersistentState";
 import { useWorkshopProjects } from "./hooks/useWorkshopProjects";
 import { useWorkshopSheets } from "./hooks/useWorkshopSheets";
 import { ArtifactsSection } from "./sections/ArtifactsSection";
@@ -32,6 +36,24 @@ export function WorkshopSidebar({
   onLoadProject,
   onStartNewProject,
 }: WorkshopSidebarProps) {
+  const [collapsed, setCollapsed] = usePersistentState(
+    "workshop:sidebar-collapse-v1",
+    {
+      projects: false,
+      assemblies: false,
+      modules: false,
+      artifacts: false,
+      summary: false,
+    },
+  );
+
+  const toggleCollapsed = (section: keyof typeof collapsed) => {
+    setCollapsed((current) => ({
+      ...current,
+      [section]: !current[section],
+    }));
+  };
+
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -42,6 +64,8 @@ export function WorkshopSidebar({
         savedProjects={pr.savedProjects}
         activeProjectId={pr.activeProjectId}
         loadingProjects={pr.loadingProjects}
+        collapsed={collapsed.projects}
+        onToggleCollapse={() => toggleCollapsed("projects")}
         onLoadProject={onLoadProject}
         onRemoveProject={(id) => pr.removeProject(id, pr.activeProjectId)}
         onNewProject={onStartNewProject}
@@ -52,19 +76,19 @@ export function WorkshopSidebar({
         activeAssemblyId={as.activeAssemblyId}
         savingAssembly={as.savingAssembly}
         showAssemblyForm={as.showAssemblyForm}
-        assemblyName={as.assemblyName}
-        assemblyDescription={as.assemblyDescription}
-        assemblyCategory={as.assemblyCategory}
+        collapsed={collapsed.assemblies}
+        onToggleCollapse={() => toggleCollapsed("assemblies")}
         editablePanelsCount={pa.editablePanels.length}
-        onToggleAssemblyForm={() => as.setShowAssemblyForm((v) => !v)}
+        onToggleAssemblyForm={() => {
+          if (as.showAssemblyForm) {
+            as.setShowAssemblyForm(false);
+            return;
+          }
+          as.setActiveAssemblyId("");
+          as.setShowAssemblyForm(true);
+        }}
         onUpdateActiveAssembly={() =>
           as.updateActiveAssembly(pa.editablePanels)
-        }
-        onSetAssemblyName={as.setAssemblyName}
-        onSetAssemblyDescription={as.setAssemblyDescription}
-        onSetAssemblyCategory={as.setAssemblyCategory}
-        onSaveCurrentAsAssembly={() =>
-          as.saveCurrentAsAssembly(pa.editablePanels)
         }
         onLoadAssembly={(key) =>
           as.loadAssembly({
@@ -74,6 +98,7 @@ export function WorkshopSidebar({
               pa.setArtifacts([]);
               mo.setModules(deriveModulesFromPanels(normalized));
               setHiddenPreviewPanelIds([]);
+              as.setShowAssemblyForm(false);
             },
           })
         }
@@ -85,6 +110,8 @@ export function WorkshopSidebar({
         showModuleForm={mo.showModuleForm}
         newModuleName={mo.newModuleName}
         newModuleParentId={mo.newModuleParentId}
+        collapsed={collapsed.modules}
+        onToggleCollapse={() => toggleCollapsed("modules")}
         onAddModule={mo.addModule}
         onRemoveModule={mo.removeModule}
         onConfirmAddModule={mo.confirmAddModule}
@@ -97,6 +124,8 @@ export function WorkshopSidebar({
         artifacts={pa.artifacts}
         modules={mo.modules}
         sheets={sh.sheets}
+        collapsed={collapsed.artifacts}
+        onToggleCollapse={() => toggleCollapsed("artifacts")}
         onAddDrawerArtifact={pa.addDrawerArtifact}
         onUpdateArtifactName={pa.updateArtifactName}
         onRemoveArtifact={pa.removeArtifact}
@@ -106,21 +135,36 @@ export function WorkshopSidebar({
         onUpdateArtifactEnabled={pa.updateArtifactEnabled}
       />
 
-      <div className="panel-title">Resumen</div>
-      <div className="stat-list">
-        <div className="metric">
-          <span className="muted">Piezas</span>
-          <strong>{totals.pieces}</strong>
-        </div>
-        <div className="metric">
-          <span className="muted">Tipos</span>
-          <strong>{totals.types}</strong>
-        </div>
-        <div className="metric">
-          <span className="muted">Area total</span>
-          <strong>{totals.area.toFixed(2)} m2</strong>
-        </div>
+      <div className="panel-title flex items-center justify-between">
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 text-left"
+          onClick={() => toggleCollapsed("summary")}
+        >
+          {collapsed.summary ? (
+            <ChevronRight size={16} />
+          ) : (
+            <ChevronDown size={16} />
+          )}
+          <span>Resumen</span>
+        </button>
       </div>
+      {!collapsed.summary && (
+        <div className="stat-list">
+          <div className="metric">
+            <span className="muted">Piezas</span>
+            <strong>{totals.pieces}</strong>
+          </div>
+          <div className="metric">
+            <span className="muted">Tipos</span>
+            <strong>{totals.types}</strong>
+          </div>
+          <div className="metric">
+            <span className="muted">Area total</span>
+            <strong>{totals.area.toFixed(2)} m2</strong>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }

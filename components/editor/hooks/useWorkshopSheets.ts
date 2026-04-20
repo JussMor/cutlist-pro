@@ -41,7 +41,7 @@ export function useWorkshopSheets({
   const [loadingSheets, setLoadingSheets] = useState(false);
   const [globalDims, setGlobalDims] = useState<{ L: number; W: number }>({
     L: 244,
-    W: 244,
+    W: 215,
   });
 
   const assignableSheets = useMemo(() => {
@@ -123,4 +123,3 @@ export function useWorkshopSheets({
     setResultNull: () => setResult(null),
   };
 }
-

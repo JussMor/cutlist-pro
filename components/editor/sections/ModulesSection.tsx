@@ -1,5 +1,5 @@
 import { ModuleNode } from "@/lib/domain/types";
-import { Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { ROOT_MODULE } from "../workshopPanelHelpers";
 
 interface ModulesSectionProps {
@@ -7,6 +7,8 @@ interface ModulesSectionProps {
   showModuleForm: boolean;
   newModuleName: string;
   newModuleParentId: string;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
   onAddModule: () => void;
   onRemoveModule: (moduleId: string) => void;
   onConfirmAddModule: () => void;
@@ -20,6 +22,8 @@ export function ModulesSection({
   showModuleForm,
   newModuleName,
   newModuleParentId,
+  collapsed,
+  onToggleCollapse,
   onAddModule,
   onRemoveModule,
   onConfirmAddModule,
@@ -37,87 +41,97 @@ export function ModulesSection({
           alignItems: "center",
         }}
       >
-        <span>M\u00f3dulos</span>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 text-left"
+          onClick={onToggleCollapse}
+        >
+          {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+          <span>Módulos</span>
+        </button>
         <button
           type="button"
           className="sidebar-add-btn"
           onClick={onAddModule}
-          title="Nuevo m\u00f3dulo"
+          title="Nuevo módulo"
         >
-          <Plus size={13} />+ M\u00f3dulo
+          <Plus size={13} />
         </button>
       </div>
-      <div className="module-list">
-        {modules.map((m) => (
-          <div
-            key={m.id}
-            className={`module-list-item ${
-              m.id === ROOT_MODULE.id ? "module-list-root" : ""
-            }`}
-          >
-            <span className="module-list-name">
-              {m.id === ROOT_MODULE.id ? "Principal" : m.name}
-            </span>
-            {m.id !== ROOT_MODULE.id && (
-              <button
-                type="button"
-                className="module-chip-remove"
-                title="Eliminar m\u00f3dulo"
-                onClick={() => onRemoveModule(m.id)}
+      {!collapsed && (
+        <>
+          <div className="module-list">
+            {modules.map((m) => (
+              <div
+                key={m.id}
+                className={`module-list-item ${
+                  m.id === ROOT_MODULE.id ? "module-list-root" : ""
+                }`}
               >
-                \u00d7
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {showModuleForm && (
-        <div className="module-form module-form-sidebar">
-          <input
-            className="table-input"
-            placeholder="Nombre del m\u00f3dulo"
-            value={newModuleName}
-            onChange={(e) => onSetNewModuleName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") onConfirmAddModule();
-              if (e.key === "Escape") onSetShowModuleForm(false);
-            }}
-            autoFocus
-          />
-          {modules.length > 1 && (
-            <select
-              className="table-input"
-              value={newModuleParentId}
-              onChange={(e) => onSetNewModuleParentId(e.target.value)}
-            >
-              {modules.map((m) => (
-                <option key={m.id} value={m.id}>
+                <span className="module-list-name">
                   {m.id === ROOT_MODULE.id ? "Principal" : m.name}
-                </option>
-              ))}
-            </select>
-          )}
-          <div style={{ display: "flex", gap: 6 }}>
-            <button
-              type="button"
-              className="template-btn"
-              onClick={onConfirmAddModule}
-              disabled={!newModuleName.trim()}
-            >
-              Crear
-            </button>
-            <button
-              type="button"
-              className="template-btn"
-              onClick={() => onSetShowModuleForm(false)}
-            >
-              Cancelar
-            </button>
+                </span>
+                {m.id !== ROOT_MODULE.id && (
+                  <button
+                    type="button"
+                    className="module-chip-remove"
+                    title="Eliminar módulo"
+                    onClick={() => onRemoveModule(m.id)}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
-        </div>
+
+          {showModuleForm && (
+            <div className="module-form module-form-sidebar">
+              <input
+                className="table-input"
+                placeholder="Nombre del módulo"
+                value={newModuleName}
+                onChange={(e) => onSetNewModuleName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") onConfirmAddModule();
+                  if (e.key === "Escape") onSetShowModuleForm(false);
+                }}
+                autoFocus
+              />
+              {modules.length > 1 && (
+                <select
+                  className="table-input"
+                  value={newModuleParentId}
+                  onChange={(e) => onSetNewModuleParentId(e.target.value)}
+                >
+                  {modules.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.id === ROOT_MODULE.id ? "Principal" : m.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <div style={{ display: "flex", gap: 6 }}>
+                <button
+                  type="button"
+                  className="template-btn"
+                  onClick={onConfirmAddModule}
+                  disabled={!newModuleName.trim()}
+                >
+                  Crear
+                </button>
+                <button
+                  type="button"
+                  className="template-btn"
+                  onClick={() => onSetShowModuleForm(false)}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </>
   );
 }
-
