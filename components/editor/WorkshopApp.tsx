@@ -27,6 +27,7 @@ import {
   useWorkshopProjects,
 } from "./hooks/useWorkshopProjects";
 import { useWorkshopSheets } from "./hooks/useWorkshopSheets";
+import { OptimizerSection } from "./sections/OptimizerSection";
 import { PricingSection } from "./sections/PricingSection";
 import { ROOT_MODULE } from "./workshopPanelHelpers";
 import {
@@ -331,7 +332,7 @@ export function WorkshopApp() {
               className="collapse-toggle"
               onClick={() => setIsActionsOpen((v) => !v)}
             >
-              <span>Acciones</span>
+              <span>Optimizador</span>
               <C open={isActionsOpen} />
             </button>
             {isActionsOpen && (
@@ -343,6 +344,10 @@ export function WorkshopApp() {
                 >
                   {pv.optimizing ? "Optimizando..." : "Optimizar corte"}
                 </button>
+                <OptimizerSection
+                  pricing={pricing}
+                  setPricingField={setPricingField}
+                />
               </div>
             )}
 

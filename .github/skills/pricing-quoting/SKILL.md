@@ -19,7 +19,8 @@ description: "Work with pricing, cost breakdown, and quoting configuration in cu
 - [`lib/domain/types.ts`](../../../lib/domain/types.ts) — `PricingConfig`, `CostBreakdown` types
 - [`store/pricingStore.ts`](../../../store/pricingStore.ts) — Zustand store for global pricing config
 - [`components/pricing/CostBreakdown.tsx`](../../../components/pricing/CostBreakdown.tsx) — UI renderer
-- [`components/editor/sections/PricingSection.tsx`](../../../components/editor/sections/PricingSection.tsx) — Editor sidebar section
+- [`components/editor/sections/PricingSection.tsx`](../../../components/editor/sections/PricingSection.tsx) — Editor sidebar Tarifa (solo costos)
+- [`components/editor/sections/OptimizerSection.tsx`](../../../components/editor/sections/OptimizerSection.tsx) — Parametros tecnicos usados por optimizer/fitting
 - [`workers/api.ts`](../../../workers/api.ts) — `POST /api/optimize` invokes `calculateCost` in-worker
 
 ## Pricing Formula
@@ -57,6 +58,11 @@ const config = usePricingStore((s) => s.config);
 // Write
 usePricingStore.getState().setConfig({ costPerCut: 1.5 });
 ```
+
+## UI Split Convention (Tarifa vs Optimizador)
+
+- `PricingSection` should expose tariff inputs only (`costPerCut`, `costPerBandingMeter`)
+- Non-tariff technical settings (kerf, clearances, trim, door/drawer system, banding type) belong in `OptimizerSection`
 
 ## Edge Banding Calculation
 

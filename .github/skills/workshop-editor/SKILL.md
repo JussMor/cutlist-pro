@@ -26,6 +26,8 @@ description: "Work with the interactive panel workshop editor in cutlist-pro. Us
 - [`components/editor/hooks/useWorkshopProjects.ts`](../../../components/editor/hooks/useWorkshopProjects.ts) — Project save/load
 - [`components/editor/hooks/useWorkshopPreview.ts`](../../../components/editor/hooks/useWorkshopPreview.ts) — Iso preview state
 - [`components/editor/sections/`](../../../components/editor/sections/) — Sidebar section components
+- [`components/editor/sections/PricingSection.tsx`](../../../components/editor/sections/PricingSection.tsx) — Tarifa (solo costos)
+- [`components/editor/sections/OptimizerSection.tsx`](../../../components/editor/sections/OptimizerSection.tsx) — Parametros de optimizacion y herrajes
 
 ## Hook Responsibilities
 
@@ -57,6 +59,12 @@ WorkshopApp
 2. Accept relevant state slices as props (keep sections dumb — no direct hook calls)
 3. Add the section to the sidebar switch/tab in `WorkshopApp.tsx`
 4. If new state is needed, add it to the most relevant existing hook or create a new `useWorkshop*.ts`
+
+## Right Panel Conventions
+
+- Keep the `Tarifas` block focused on pricing-only inputs (`costPerCut`, `costPerBandingMeter`)
+- Keep optimizer and fitting inputs (`kerfCm`, `fitClearanceCm`, `trimAllowanceCm`, door/drawer settings, etc.) in `Optimizador`
+- Do not add action buttons unless explicitly requested; preserve removed controls
 
 ## Panel Field Conventions
 
