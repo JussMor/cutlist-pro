@@ -5,7 +5,7 @@ import { MaterialMode, StockSheet } from "@/lib/domain/types";
 const STANDARD_DIMS = [
   { label: "244 × 122 cm", L: 244, W: 122 },
   { label: "244 × 61 cm (mitad)", L: 244, W: 61 },
-  { label: "244 × 244 cm (doble)", L: 244, W: 244 },
+  { label: "244 × 215 cm (doble)", L: 244, W: 215 },
   { label: "122 × 122 cm (cuarto)", L: 122, W: 122 },
 ];
 
@@ -53,7 +53,14 @@ export function StockSelector({
         </button>
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "flex-end" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          marginTop: 10,
+          alignItems: "flex-end",
+        }}
+      >
         {materialMode === "single" && selectedSheetIds.length > 0 && (
           <div className="field" style={{ flex: 1 }}>
             <label htmlFor="primarySheet">Melamina principal</label>

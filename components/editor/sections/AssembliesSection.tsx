@@ -59,21 +59,10 @@ export function AssembliesSection({
           className="text-[#d7dde9] hover:bg-[#111723] hover:text-[#f4b450]"
           onClick={onToggleAssemblyForm}
           disabled={editablePanelsCount === 0 || savingAssembly}
-          title={showAssemblyForm ? "Cancelar" : "Guardar como plantilla"}
+          title={showAssemblyForm ? "Cerrar plantilla" : "Nueva plantilla"}
         >
           <Plus size={18} />
         </Button>
-      </div>
-
-      <div style={{ display: "grid", gap: 8, marginBottom: 10 }}>
-        <button
-          className="template-btn"
-          type="button"
-          onClick={onToggleAssemblyForm}
-          disabled={editablePanelsCount === 0 || savingAssembly}
-        >
-          {showAssemblyForm ? "Cancelar" : "Guardar como plantilla"}
-        </button>
       </div>
 
       {showAssemblyForm && (
@@ -105,14 +94,16 @@ export function AssembliesSection({
             <option value="almacenaje">Almacenaje</option>
             <option value="oficina">Oficina</option>
           </select>
-          <button
+          <Button
             type="button"
-            className="template-btn"
+            variant="outline"
+            size="sm"
+            className="h-8 border-[#2f3850] bg-transparent px-3 text-sm text-[#d7dde9] hover:border-[#f4b450] hover:bg-[#121a28]"
             onClick={onSaveCurrentAsAssembly}
             disabled={savingAssembly || !assemblyName.trim()}
           >
-            Guardar
-          </button>
+            {savingAssembly ? "Guardando..." : "Guardar"}
+          </Button>
         </div>
       )}
 

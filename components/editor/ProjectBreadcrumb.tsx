@@ -11,6 +11,7 @@ interface ProjectBreadcrumbProps {
   activeProjectName: string | null;
   savingProject: boolean;
   onSaveName: (nextName: string) => Promise<void>;
+  rootLabel: string;
 }
 
 function shortProjectName(name: string | null) {
@@ -22,6 +23,7 @@ export function ProjectBreadcrumb({
   activeProjectName,
   savingProject,
   onSaveName,
+  rootLabel,
 }: ProjectBreadcrumbProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [draftName, setDraftName] = useState("");
@@ -46,7 +48,7 @@ export function ProjectBreadcrumb({
     <div className="mb-3 flex items-center gap-2 border-b border-[#262d3d] pb-2">
       <RotateCcw size={14} className="text-[#7d879a]" />
       <span className="text-xs uppercase tracking-[0.16em] text-[#7d879a]">
-        Proyecto
+        {rootLabel}
       </span>
       <span className="text-[#7d879a]">&gt;</span>
       {isEditing ? (

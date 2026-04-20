@@ -16,6 +16,7 @@ id = "cdf299fa887e48438ff2492434db5243"
 ODOO_URL = "https://www.panelexcenter.com"
 ODOO_USER = "jussmor16@gmail.com"
 ODOO_DB = "panelexcenter"
+ODOO_API_KEY= "b2538a508c9bb684660ca3827ae3d3dfcc564735"
 API_VERSION = "v1"
 
 [dev]

@@ -246,6 +246,7 @@ export function WorkshopApp() {
           activeProjectName={activeProject?.name ?? null}
           savingProject={pr.savingProject}
           onSaveName={saveProjectNameInline}
+          rootLabel={as.showAssemblyForm ? "Plantilla" : "Proyecto"}
         />
         <div className="content-grid">
           <section className="card preview-card">
