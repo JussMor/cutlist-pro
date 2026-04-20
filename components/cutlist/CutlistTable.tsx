@@ -47,6 +47,20 @@ const roles: PanelRole[] = [
   "drawer-bottom",
 ];
 
+const roleLabels: Record<PanelRole, string> = {
+  side: "Lateral",
+  top: "Tapa",
+  bottom: "Base",
+  back: "Fondo",
+  shelf: "Entrepanio",
+  door: "Puerta",
+  divider: "Divisor",
+  "drawer-front": "Frente de cajon",
+  "drawer-side": "Lateral de cajon",
+  "drawer-back": "Trasera de cajon",
+  "drawer-bottom": "Fondo de cajon",
+};
+
 export function CutlistTable({
   panels,
   derivedPanelIds = [],
@@ -153,7 +167,7 @@ export function CutlistTable({
           >
             {roles.map((role) => (
               <option key={role} value={role}>
-                {role}
+                {roleLabels[role]}
               </option>
             ))}
           </select>
@@ -243,11 +257,33 @@ export function CutlistTable({
         <td>
           <button
             type="button"
-            className={`table-row-action preview-hide-toggle ${isHiddenInPreview ? "is-hidden" : ""}`}
+            className="table-row-action"
             onClick={() => onTogglePreviewVisibility(panel.id)}
+            aria-label={
+              isHiddenInPreview
+                ? "Mostrar en vista previa"
+                : "Ocultar en vista previa"
+            }
+            title={
+              isHiddenInPreview
+                ? "Mostrar en vista previa"
+                : "Ocultar en vista previa"
+            }
+            style={
+              isHiddenInPreview
+                ? {
+                    borderColor: "#6b5a2d",
+                    background: "#211a10",
+                    color: "#f4d28e",
+                  }
+                : {
+                    borderColor: "#2d3f5a",
+                    background: "#111b2b",
+                    color: "#a8c8ee",
+                  }
+            }
           >
             {isHiddenInPreview ? <Eye size={14} /> : <EyeOff size={14} />}
-            {isHiddenInPreview ? "Mostrar" : "Ocultar"}
           </button>
         </td>
         <td>
@@ -258,7 +294,6 @@ export function CutlistTable({
             onClick={() => onRemovePanel(panel.id)}
           >
             <Trash2 size={14} />
-            {isDerived ? "Bloqueado" : "Eliminar"}
           </button>
         </td>
       </tr>
@@ -291,12 +326,12 @@ export function CutlistTable({
             <th>Pieza</th>
             <th>Largo</th>
             <th>Ancho</th>
-            <th>Qty</th>
+            <th>Cantidad</th>
             <th>Rol</th>
             <th>Modulo</th>
             <th>Melamina</th>
             <th>Canto</th>
-            <th>Preview</th>
+            <th>Vista previa</th>
             <th></th>
           </tr>
         </thead>

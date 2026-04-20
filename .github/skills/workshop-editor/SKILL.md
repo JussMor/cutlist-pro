@@ -63,8 +63,10 @@ WorkshopApp
 ## Right Panel Conventions
 
 - Keep the `Tarifas` block focused on pricing-only inputs (`costPerCut`, `costPerBandingMeter`)
-- Keep optimizer and fitting inputs (`kerfCm`, `fitClearanceCm`, `trimAllowanceCm`, door/drawer settings, etc.) in `Optimizador`
+- Keep optimizer and fitting inputs with real layout impact (`kerfCm`, `fitClearanceCm`, `trimAllowanceCm`, `backInsetCm`, `doorSystem`, `doorRevealCm`, `drawerSideClearanceCm`) in `Optimizador`
 - Do not add action buttons unless explicitly requested; preserve removed controls
+- Add a contextual `?` tooltip to each visible field explaining what it is and how it affects output
+- Remove controls that do not affect layout/preview or cost behavior
 
 ## Panel Field Conventions
 
