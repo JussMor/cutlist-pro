@@ -343,9 +343,25 @@ export function WorkshopApp() {
                 <button
                   className="template-btn"
                   type="button"
-                  onClick={pv.runOptimize}
+                  onClick={() => {
+                    void pv.runOptimize();
+                  }}
+                  disabled={pv.optimizing}
                 >
                   {pv.optimizing ? "Optimizando..." : "Optimizar corte"}
+                </button>
+                <button
+                  className="template-btn"
+                  type="button"
+                  onClick={() => {
+                    void pv.runOptimize({ bypassRoleValidation: true });
+                  }}
+                  disabled={pv.optimizing}
+                  title="Modo rapido: omite validaciones estructurales y sigue con el corte"
+                >
+                  {pv.optimizing
+                    ? "Optimizando..."
+                    : "Forzar optimizacion (modo rapido)"}
                 </button>
                 <OptimizerSection
                   pricing={pricing}

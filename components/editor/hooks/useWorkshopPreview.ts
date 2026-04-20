@@ -49,7 +49,7 @@ export interface UseWorkshopPreviewReturn {
   splitPreference: GuillotineSplitPreference;
   previewColorMode: PreviewColorMode;
   coloredIsoPanels: ReturnType<typeof buildManualIsoLayout>;
-  runOptimize: () => Promise<void>;
+  runOptimize: (options?: { bypassRoleValidation?: boolean }) => Promise<void>;
   setSplitPreference: React.Dispatch<
     React.SetStateAction<GuillotineSplitPreference>
   >;
@@ -117,16 +117,23 @@ export function useWorkshopPreview({
     });
   }, [isoPanels, previewColorMode, previewPanels, sheets]);
 
-  async function runOptimize() {
+  async function runOptimize(options?: { bypassRoleValidation?: boolean }) {
     try {
+      const bypassRoleValidation = Boolean(options?.bypassRoleValidation);
       setOptimizing(true);
       setError(null);
       setOpsSummary(null);
       setWarnings([]);
 
       const prepared = preparePanelsByRole(allPanels, pricing, modules);
-      if (prepared.warnings.length > 0) setWarnings(prepared.warnings);
-      if (prepared.issues.length > 0)
+      const effectiveWarnings = [
+        ...prepared.warnings,
+        ...(bypassRoleValidation
+          ? prepared.issues.map((issue) => `Modo rapido: ${issue}`)
+          : []),
+      ];
+      if (effectiveWarnings.length > 0) setWarnings(effectiveWarnings);
+      if (prepared.issues.length > 0 && !bypassRoleValidation)
         throw new Error(prepared.issues.join(" "));
 
       const opsByType = prepared.ops.reduce<Record<string, number>>(
