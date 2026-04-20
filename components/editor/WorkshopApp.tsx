@@ -18,6 +18,7 @@ import { ProjectBreadcrumb } from "./ProjectBreadcrumb";
 import { SheetSyncButtons } from "./SheetSyncButtons";
 import { WorkshopSidebar } from "./WorkshopSidebar";
 import { usePersistentState } from "./hooks/usePersistentState";
+import { useReloadConfirmationGuard } from "./hooks/useReloadConfirmationGuard";
 import { useWorkshopAssemblies } from "./hooks/useWorkshopAssemblies";
 import { useWorkshopModules } from "./hooks/useWorkshopModules";
 import { useWorkshopPanels } from "./hooks/useWorkshopPanels";
@@ -36,6 +37,8 @@ import {
 } from "./workshopProjectLifecycle";
 
 export function WorkshopApp() {
+  useReloadConfirmationGuard(true);
+
   const { pricing, setPricingField } = usePricingStore();
 
   const [result, setResult] = useState<CutResult | null>(null);
