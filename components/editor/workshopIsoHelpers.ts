@@ -1,5 +1,16 @@
-import { IsoPanel, ModuleNode, Panel, PanelRole, StockSheet } from "@/lib/domain/types";
-import { expandPanels, normalizeName, normalizePanelsModule, ROOT_MODULE } from "./workshopPanelHelpers";
+import {
+  IsoPanel,
+  ModuleNode,
+  Panel,
+  PanelRole,
+  StockSheet,
+} from "@/lib/domain/types";
+import {
+  expandPanels,
+  normalizeName,
+  normalizePanelsModule,
+  ROOT_MODULE,
+} from "./workshopPanelHelpers";
 
 export const rolePreviewColors: Record<PanelRole, string> = {
   side: "#c6cfdb",
@@ -57,7 +68,12 @@ export function buildManualIsoLayout(
     const backs = modulePanels.filter((p) => p.role === "back");
     const shelves = modulePanels.filter((p) => p.role === "shelf");
     const doors = modulePanels.filter((p) => p.role === "door");
-    const dividers = modulePanels.filter((p) => p.role === "divider");
+    const drawerInnerFronts = modulePanels.filter(
+      (p) => p.role === "divider" && p.id.includes("-inner-front"),
+    );
+    const dividers = modulePanels.filter(
+      (p) => p.role === "divider" && !p.id.includes("-inner-front"),
+    );
     const drawerFronts = modulePanels.filter((p) => p.role === "drawer-front");
     const drawerSides = modulePanels.filter((p) => p.role === "drawer-side");
     const drawerBacks = modulePanels.filter((p) => p.role === "drawer-back");
@@ -214,6 +230,7 @@ export function buildManualIsoLayout(
       drawerBottoms.length,
       drawerBacks.length,
       Math.ceil(drawerSides.length / 2),
+      drawerInnerFronts.length,
       0,
     );
 
@@ -251,6 +268,7 @@ export function buildManualIsoLayout(
       const drawerBack = drawerBacks[i];
       const leftDrawerSide = drawerSides[i * 2];
       const rightDrawerSide = drawerSides[i * 2 + 1];
+      const drawerInnerFront = drawerInnerFronts[i];
 
       const frontH = Math.max(4, drawerFront?.W ?? height * 0.12);
       const z = nextDrawerZ;
@@ -315,10 +333,18 @@ export function buildManualIsoLayout(
         );
       }
 
+      if (drawerInnerFront) {
+        pushPanel(
+          drawerInnerFront,
+          i,
+          { x: (width - boxWidth) / 2, y: 1.8, z: z + 0.5 },
+          { w: drawerInnerFront.L, d: 0.8, h: drawerInnerFront.W },
+        );
+      }
+
       nextDrawerZ += frontH + drawerGap;
     }
   });
 
   return result;
 }
-
