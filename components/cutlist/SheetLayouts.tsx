@@ -51,6 +51,7 @@ export function SheetLayouts({ panels, result }: Props) {
         </span>
         <span>{result.stats.wastePercent.toFixed(1)}% desperdicio</span>
         <span>{result.stats.totalCuts} cortes</span>
+        <span>{result.stats.totalBandingLength.toFixed(2)} m canto</span>
         <span>
           modo: {splitPreferenceLabel(result.optimizer?.appliedSplitPreference)}
         </span>
