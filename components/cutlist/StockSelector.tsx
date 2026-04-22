@@ -42,10 +42,6 @@ export function StockSelector({
 }: Props) {
   const { unit, convert } = useUnitsStore();
   const dimsKey = `${globalDims.L}x${globalDims.W}`;
-  const singleModeSheets =
-    selectedSheetIds.length > 0
-      ? sheets.filter((sheet) => selectedSheetIds.includes(sheet.odooId))
-      : sheets;
 
   return (
     <div className="stock-selector">
@@ -81,7 +77,7 @@ export function StockSelector({
                   "Seleccionar"}
               </SelectTrigger>
               <SelectContent>
-                {singleModeSheets.map((sheet) => (
+                {sheets.map((sheet) => (
                   <SelectItem
                     key={sheet.odooId}
                     value={sheet.odooId.toString()}
