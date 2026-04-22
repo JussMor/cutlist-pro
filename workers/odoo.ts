@@ -25,6 +25,9 @@ export async function fetchOdooSheets(env: Env): Promise<StockSheet[]> {
     );
   }
 
+  // Obtener tasa de impuesto (por defecto 0.15 = 15% IVA)
+  const taxRate = Number(env.ODOO_TAX_RATE ?? "0.15");
+
   // ── Paso 1: obtener uid (con cache de 23h para no re-autenticar cada vez) ──
   const credential = env.ODOO_API_KEY ?? env.ODOO_PASSWORD!;
   let uid = await env.KV.get<number>("odoo:uid", "json");
@@ -104,6 +107,7 @@ export async function fetchOdooSheets(env: Env): Promise<StockSheet[]> {
               "qty_available",
               "list_price",
               "standard_price",
+              "taxes_id",
               "description_sale",
               "categ_id",
             ],
@@ -137,12 +141,14 @@ export async function fetchOdooSheets(env: Env): Promise<StockSheet[]> {
   const sheets: StockSheet[] = records.map((p) => {
     const name = String(p.name ?? "Tablero");
     const categ = Array.isArray(p.categ_id) ? String(p.categ_id[1] ?? "") : "";
+    const basePrice = Number(p.list_price ?? p.standard_price ?? 0);
+    const priceWithTax = basePrice * (1 + taxRate);
 
     return {
       odooId: Number(p.id ?? 0),
       name,
       qty: Number(p.qty_available ?? 0),
-      pricePerSheet: Number(p.list_price ?? p.standard_price ?? 0),
+      pricePerSheet: priceWithTax,
       L: 244,
       W: 122,
       material: categ || String(p.description_sale ?? ""),

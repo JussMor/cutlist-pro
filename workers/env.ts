@@ -35,4 +35,5 @@ export interface Env {
   ODOO_PASSWORD?: string;
   ODOO_API_KEY?: string;
   ODOO_DB?: string;
+  ODOO_TAX_RATE?: string;
 }
