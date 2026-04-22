@@ -227,6 +227,7 @@ function optimizeWithPreference(
         totalCuts: 0,
         totalCutLength: 0,
         totalBandingLength: computeBandingLengthCm(panels) / 100,
+        unplacedPanels: items.length,
       },
     };
   }
@@ -327,6 +328,7 @@ function optimizeWithPreference(
     0,
   );
   const wastedArea = Math.max(usedArea - totalArea, 0);
+  const unplacedPanels = items.length;
 
   return {
     sheets: placedSheets,
@@ -338,6 +340,7 @@ function optimizeWithPreference(
       totalCuts,
       totalCutLength,
       totalBandingLength: computeBandingLengthCm(panels) / 100,
+      unplacedPanels,
     },
   };
 }

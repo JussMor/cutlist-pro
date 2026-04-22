@@ -441,6 +441,22 @@ export function useWorkshopPreview({
           "No se pudo ubicar ninguna pieza en el tablero seleccionado. Revisa asignacion de tablero por pieza o dimensiones (L/W).",
         );
       }
+
+      if (opt.stats.unplacedPanels > 0) {
+        const diagnostic = {
+          optimizePanels: optimizePanels.length,
+          placedCount,
+          unplacedPanels: opt.stats.unplacedPanels,
+          sourceSheets: source.length,
+          constrainedPanels: constrainedPanels.length,
+          sheetMismatchPanels: sheetMismatchPanels.length,
+          oversizedPanels: oversizedPanels.length,
+        };
+        console.error("[optimize] partial placement result", diagnostic);
+        throw new Error(
+          `No se pudieron ubicar ${opt.stats.unplacedPanels} pieza(s). Revisa dimensiones (L/W) o el tablero seleccionado.`,
+        );
+      }
       setResult(opt);
     } catch (e) {
       failed = true;

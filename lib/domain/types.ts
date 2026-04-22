@@ -167,6 +167,7 @@ export interface CutResult {
     totalCuts: number;
     totalCutLength: number;
     totalBandingLength: number;
+    unplacedPanels: number;
   };
   totalCost?: CostBreakdown;
   optimizer?: CutResultOptimizerMeta;
