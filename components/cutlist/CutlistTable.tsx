@@ -303,8 +303,12 @@ export function CutlistTable({
   function toggleGroup(groupLabel: string) {
     setCollapsedGroups((current) => ({
       ...current,
-      [groupLabel]: !current[groupLabel],
+      [groupLabel]: !(current[groupLabel] ?? true),
     }));
+  }
+
+  function isGroupCollapsed(groupLabel: string) {
+    return collapsedGroups[groupLabel] ?? true;
   }
 
   return (
@@ -371,14 +375,14 @@ export function CutlistTable({
                       className="table-row-action preview-hide-toggle"
                       onClick={() => toggleGroup(group.groupLabel)}
                     >
-                      {collapsedGroups[group.groupLabel]
+                      {isGroupCollapsed(group.groupLabel)
                         ? "Expandir"
                         : "Colapsar"}
                     </button>
                   </div>
                 </td>
               </tr>
-              {!collapsedGroups[group.groupLabel] &&
+              {!isGroupCollapsed(group.groupLabel) &&
                 group.panels.map((panel) => renderPanelRow(panel))}
             </Fragment>
           ))}
