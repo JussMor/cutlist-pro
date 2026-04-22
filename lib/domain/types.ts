@@ -195,6 +195,7 @@ export interface DrawerArtifactParams {
   count: number;
   frontWidth: number;
   frontHeight: number;
+  innerFrontHeight?: number;
   boxDepth: number;
   boxHeight: number;
   sideThickness: number;

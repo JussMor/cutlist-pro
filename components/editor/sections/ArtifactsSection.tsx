@@ -306,6 +306,23 @@ export function ArtifactsSection({
                     type="number"
                     min="1"
                     step="0.1"
+                    value={
+                      artifact.params.innerFrontHeight ??
+                      artifact.params.frontHeight
+                    }
+                    onChange={(e) =>
+                      onUpdateArtifactNumericParam(
+                        artifact.id,
+                        "innerFrontHeight",
+                        Number(e.target.value),
+                      )
+                    }
+                    title="Frente interior alto"
+                  />
+                  <Input
+                    type="number"
+                    min="1"
+                    step="0.1"
                     value={artifact.params.boxDepth}
                     onChange={(e) =>
                       onUpdateArtifactNumericParam(

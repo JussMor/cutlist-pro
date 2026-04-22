@@ -23,6 +23,7 @@ export const DEFAULT_DRAWER_PARAMS: DrawerArtifactParams = {
   count: 1,
   frontWidth: 50,
   frontHeight: 20,
+  innerFrontHeight: 20,
   boxDepth: 45,
   boxHeight: 12,
   sideThickness: 1.5,
@@ -70,6 +71,7 @@ export function generatePanelsFromArtifact(
   const count = Math.max(1, Math.round(params.count));
   const frontWidth = Math.max(1, params.frontWidth);
   const frontHeight = Math.max(1, params.frontHeight);
+  const innerFrontHeight = Math.max(1, params.innerFrontHeight ?? frontHeight);
   const boxDepth = Math.max(1, params.boxDepth);
   const boxHeight = Math.max(1, params.boxHeight);
   const sideThickness = Math.max(0.1, params.sideThickness);
@@ -157,7 +159,7 @@ export function generatePanelsFromArtifact(
         moduleId: artifact.moduleId,
         qty: 1,
         L: innerWidth,
-        W: frontHeight,
+        W: innerFrontHeight,
         banding: { top: false, bottom: false, left: false, right: false },
         stockSheetId,
         grainDirection: "none",
