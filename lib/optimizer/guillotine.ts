@@ -9,6 +9,10 @@ import {
   PlacedSheet,
   StockSheet,
 } from "@/lib/domain/types";
+import {
+  buildCutStepsForPlacement,
+  computeBandingLengthCm,
+} from "@/lib/optimizer/guillotine-helpers";
 
 interface Space {
   x: number;
@@ -196,112 +200,6 @@ function findBestCandidate(
   return best;
 }
 
-function computeBandingLengthCm(panels: Panel[]): number {
-  let total = 0;
-  for (const panel of panels) {
-    const horizontalEdges =
-      (panel.banding.top ? 1 : 0) + (panel.banding.bottom ? 1 : 0);
-    const verticalEdges =
-      (panel.banding.left ? 1 : 0) + (panel.banding.right ? 1 : 0);
-    total += panel.qty * (horizontalEdges * panel.W + verticalEdges * panel.L);
-  }
-  return total;
-}
-
-function buildCutStepsForPlacement(
-  space: Space,
-  used: { x: number; y: number; w: number; h: number },
-  kerfCm: number,
-  split: "vertical-first" | "horizontal-first",
-  panelId: string,
-  startOrder: number,
-): CutStep[] {
-  const remW = space.W - used.w - kerfCm;
-  const remH = space.H - used.h - kerfCm;
-  const xCut = space.x + used.w + kerfCm / 2;
-  const yCut = space.y + used.h + kerfCm / 2;
-  const steps: CutStep[] = [];
-
-  if (remW > 0.1 && remH > 0.1) {
-    if (split === "vertical-first") {
-      steps.push({
-        order: startOrder,
-        panelId,
-        split,
-        orientation: "vertical",
-        x1: xCut,
-        y1: space.y,
-        x2: xCut,
-        y2: space.y + space.H,
-        length: space.H,
-      });
-      steps.push({
-        order: startOrder + 1,
-        panelId,
-        split,
-        orientation: "horizontal",
-        x1: space.x,
-        y1: yCut,
-        x2: space.x + used.w,
-        y2: yCut,
-        length: used.w,
-      });
-    } else {
-      steps.push({
-        order: startOrder,
-        panelId,
-        split,
-        orientation: "horizontal",
-        x1: space.x,
-        y1: yCut,
-        x2: space.x + space.W,
-        y2: yCut,
-        length: space.W,
-      });
-      steps.push({
-        order: startOrder + 1,
-        panelId,
-        split,
-        orientation: "vertical",
-        x1: xCut,
-        y1: space.y,
-        x2: xCut,
-        y2: space.y + used.h,
-        length: used.h,
-      });
-    }
-    return steps;
-  }
-
-  if (remW > 0.1) {
-    steps.push({
-      order: startOrder,
-      panelId,
-      split,
-      orientation: "vertical",
-      x1: xCut,
-      y1: space.y,
-      x2: xCut,
-      y2: space.y + space.H,
-      length: space.H,
-    });
-  } else if (remH > 0.1) {
-    steps.push({
-      order: startOrder,
-      panelId,
-      split,
-      orientation: "horizontal",
-      x1: space.x,
-      y1: yCut,
-      x2: space.x + space.W,
-      y2: yCut,
-      length: space.W,
-    });
-  }
-
-  return steps;
-}
-
 function optimizeWithPreference(
   panels: Panel[],
   sheets: StockSheet[],
@@ -317,22 +215,47 @@ function optimizeWithPreference(
 
   items.sort((a, b) => b.L * b.W - a.L * a.W);
 
-  const sheetInstances: SheetInstance[] = sheets.flatMap((sheet) => {
-    const copies = Math.max(1, Math.floor(sheet.qty || 1));
-    return Array.from({ length: copies }, (_, index) => ({
-      ...sheet,
-      qty: 1,
-      instanceId: `${sheet.odooId}-${index + 1}`,
-    }));
-  });
+  if (sheets.length === 0) {
+    const totalArea = panels.reduce((sum, p) => sum + p.L * p.W * p.qty, 0);
+    return {
+      sheets: [],
+      stats: {
+        sheetsUsed: 0,
+        totalArea,
+        wastedArea: 0,
+        wastePercent: 0,
+        totalCuts: 0,
+        totalCutLength: 0,
+        totalBandingLength: computeBandingLengthCm(panels) / 100,
+      },
+    };
+  }
+
+  const sheetTemplates: StockSheet[] = sheets.map((sheet) => ({
+    ...sheet,
+    qty: 1,
+  }));
+  const sheetInstanceCount = new Map<number, number>();
 
   const placedSheets: PlacedSheet[] = [];
   const totalArea = panels.reduce((sum, p) => sum + p.L * p.W * p.qty, 0);
   let totalCutLength = 0;
   let totalCuts = 0;
 
-  for (const sheet of sheetInstances) {
-    if (items.length === 0) break;
+  let templateCursor = 0;
+  let noPlacementStreak = 0;
+
+  while (items.length > 0 && noPlacementStreak < sheetTemplates.length) {
+    const template = sheetTemplates[templateCursor % sheetTemplates.length];
+    templateCursor += 1;
+    const nextInstanceNumber =
+      (sheetInstanceCount.get(template.odooId) ?? 0) + 1;
+    sheetInstanceCount.set(template.odooId, nextInstanceNumber);
+
+    const sheet: SheetInstance = {
+      ...template,
+      instanceId: `${template.odooId}-${nextInstanceNumber}`,
+    };
 
     const placed: PlacedPanel[] = [];
     const cutSteps: CutStep[] = [];
@@ -393,6 +316,9 @@ function optimizeWithPreference(
 
     if (placed.length > 0) {
       placedSheets.push({ sheet, placed, cutSteps });
+      noPlacementStreak = 0;
+    } else {
+      noPlacementStreak += 1;
     }
   }
 
