@@ -16,7 +16,7 @@ export const usePricingStore = create<PricingState>((set) => ({
     costPerCut: 0.8,
     costPerBandingMeter: 1.2,
     bandingType: "ABS 1mm",
-    kerfCm: 0.3,
+    kerfCm: 1,
     fitClearanceCm: 0.2,
     trimAllowanceCm: 0.05,
     backInsetCm: 0.2,
