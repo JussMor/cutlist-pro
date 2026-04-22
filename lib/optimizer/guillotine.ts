@@ -246,7 +246,10 @@ function optimizeWithPreference(
   let templateCursor = 0;
   let noPlacementStreak = 0;
 
-  while (items.length > 0 && noPlacementStreak < sheetTemplates.length) {
+  while (
+    items.length > 0 &&
+    noPlacementStreak < Math.max(3, sheetTemplates.length)
+  ) {
     const template = sheetTemplates[templateCursor % sheetTemplates.length];
     templateCursor += 1;
     const nextInstanceNumber =
