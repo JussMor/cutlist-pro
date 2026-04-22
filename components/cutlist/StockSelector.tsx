@@ -8,6 +8,7 @@ import {
   SelectTrigger,
 } from "@/components/ui/select";
 import { MaterialMode, StockSheet } from "@/lib/domain/types";
+import { useUnitsStore } from "@/store/unitsStore";
 
 const STANDARD_DIMS = [
   { label: "244 × 122 cm", L: 244, W: 122 },
@@ -39,6 +40,7 @@ export function StockSelector({
   onPrimarySheetChange,
   onGlobalDimsChange,
 }: Props) {
+  const { unit, convert } = useUnitsStore();
   const dimsKey = `${globalDims.L}x${globalDims.W}`;
   const singleModeSheets =
     selectedSheetIds.length > 0
@@ -127,7 +129,10 @@ export function StockSelector({
               if (found) onGlobalDimsChange(found.L, found.W);
             }}
           >
-            <SelectTrigger>{dimsKey.replace("x", " × ")} cm</SelectTrigger>
+            <SelectTrigger>
+              {convert(Number(dimsKey.split("x")[0])).toFixed(0)} ×{" "}
+              {convert(Number(dimsKey.split("x")[1])).toFixed(0)} {unit}
+            </SelectTrigger>
             <SelectContent>
               {STANDARD_DIMS.map((d) => (
                 <SelectItem key={`${d.L}x${d.W}`} value={`${d.L}x${d.W}`}>

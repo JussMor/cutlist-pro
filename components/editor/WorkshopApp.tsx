@@ -2,6 +2,7 @@
 
 import { StockSelector } from "@/components/cutlist/StockSelector";
 import { IsoPreview } from "@/components/preview/IsoPreview";
+import { UnitsSelector } from "@/components/ui/units-selector";
 import { saveProject } from "@/lib/api/client";
 import {
   CostBreakdown as CostBreakdownType,
@@ -441,14 +442,24 @@ export function WorkshopApp() {
         </div>
 
         <section className="card cutlist-card">
-          <button
-            type="button"
-            className="collapse-toggle"
-            onClick={() => setIsCutlistOpen((v) => !v)}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 12,
+            }}
           >
-            <span>Lista de corte</span>
-            <C open={isCutlistOpen} />
-          </button>
+            <button
+              type="button"
+              className="collapse-toggle"
+              onClick={() => setIsCutlistOpen((v) => !v)}
+            >
+              <span>Lista de corte</span>
+              <C open={isCutlistOpen} />
+            </button>
+            <UnitsSelector />
+          </div>
           {isCutlistOpen && (
             <div className="despiece-stack">
               {pv.warnings.length > 0 && (

@@ -1,6 +1,7 @@
 "use client";
 
 import { CutResult, CutStep, Panel } from "@/lib/domain/types";
+import { useUnitsStore } from "@/store/unitsStore";
 
 interface Props {
   panels: Panel[];
@@ -32,6 +33,8 @@ function cutStepMidpoint(step: CutStep): { x: number; y: number } {
 }
 
 export function SheetLayouts({ panels, result }: Props) {
+  const { unit, convert } = useUnitsStore();
+
   if (!result || result.sheets.length === 0) {
     return (
       <div className="sheet-layouts-empty muted">
@@ -72,7 +75,8 @@ export function SheetLayouts({ panels, result }: Props) {
           <div className="sheet-card-header">
             <strong>{sheetResult.sheet.name}</strong>
             <span className="muted">
-              {sheetResult.sheet.L} x {sheetResult.sheet.W} cm
+              {convert(sheetResult.sheet.L).toFixed(1)} x{" "}
+              {convert(sheetResult.sheet.W).toFixed(1)} {unit}
             </span>
           </div>
 
@@ -120,7 +124,8 @@ export function SheetLayouts({ panels, result }: Props) {
                     fontSize="3.8"
                     fill="#97a2b7"
                   >
-                    {placed.h.toFixed(0)} x {placed.w.toFixed(0)} cm
+                    {convert(placed.h).toFixed(0)} x{" "}
+                    {convert(placed.w).toFixed(0)} {unit}
                   </text>
                 </g>
               );
@@ -171,7 +176,7 @@ export function SheetLayouts({ panels, result }: Props) {
               <span key={`step-${step.order}-${step.panelId}`}>
                 Paso {step.order}: corte{" "}
                 {step.orientation === "vertical" ? "vertical" : "horizontal"} (
-                {step.length.toFixed(1)} cm) - pieza{" "}
+                {convert(step.length).toFixed(1)} {unit}) - pieza{" "}
                 {getPanelLabel(step.panelId, panels)}
               </span>
             ))}

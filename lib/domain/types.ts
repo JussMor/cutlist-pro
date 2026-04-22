@@ -201,6 +201,7 @@ export interface DrawerArtifactParams {
   bottomThickness: number;
   backThickness: number;
   materialSheetId?: number | null;
+  includeInnerFront?: boolean;
 }
 
 export interface ArtifactInstance {

@@ -29,6 +29,7 @@ export const DEFAULT_DRAWER_PARAMS: DrawerArtifactParams = {
   bottomThickness: 0.5,
   backThickness: 1.5,
   materialSheetId: null,
+  includeInnerFront: true,
 };
 
 export function createManualPanel(index: number): Panel {
@@ -60,7 +61,9 @@ export function createDrawerArtifact(
   };
 }
 
-export function generatePanelsFromArtifact(artifact: ArtifactInstance): Panel[] {
+export function generatePanelsFromArtifact(
+  artifact: ArtifactInstance,
+): Panel[] {
   if (!artifact.enabled || artifact.type !== "drawer") return [];
 
   const params = artifact.params;
@@ -145,6 +148,21 @@ export function generatePanelsFromArtifact(artifact: ArtifactInstance): Panel[] 
       stockSheetId,
       grainDirection: "none",
     });
+
+    if (params.includeInnerFront ?? true) {
+      panels.push({
+        id: `${baseId}-inner-front`,
+        label: `${baseLabel} frente interior`,
+        role: "divider",
+        moduleId: artifact.moduleId,
+        qty: 1,
+        L: innerWidth,
+        W: frontHeight,
+        banding: { top: false, bottom: false, left: false, right: false },
+        stockSheetId,
+        grainDirection: "none",
+      });
+    }
   }
 
   return panels;
@@ -226,4 +244,3 @@ export function sheetGroupKey(sheet: StockSheet): string {
 
 // Re-export MaterialMode so consumers don't need a separate import for this util
 export type { MaterialMode };
-

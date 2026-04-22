@@ -1,12 +1,15 @@
 "use client";
 
 import { StockSheet } from "@/lib/domain/types";
+import { useUnitsStore } from "@/store/unitsStore";
 
 interface Props {
   sheets: StockSheet[];
 }
 
 export function StockTable({ sheets }: Props) {
+  const { unit, convert } = useUnitsStore();
+
   if (sheets.length === 0) return null;
 
   return (
@@ -34,8 +37,12 @@ export function StockTable({ sheets }: Props) {
               >
                 {s.name}
               </td>
-              <td style={{ textAlign: "right" }}>{s.L} cm</td>
-              <td style={{ textAlign: "right" }}>{s.W} cm</td>
+              <td style={{ textAlign: "right" }}>
+                {convert(s.L).toFixed(1)} {unit}
+              </td>
+              <td style={{ textAlign: "right" }}>
+                {convert(s.W).toFixed(1)} {unit}
+              </td>
               <td style={{ textAlign: "right" }}>{s.qty}</td>
               <td style={{ textAlign: "right" }} className="price">
                 ${s.pricePerSheet.toFixed(2)}
