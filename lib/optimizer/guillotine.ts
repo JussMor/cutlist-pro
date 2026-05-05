@@ -143,6 +143,9 @@ function findBestCandidate(
   for (let itemIndex = 0; itemIndex < items.length; itemIndex += 1) {
     const item = items[itemIndex];
 
+    // Skip panels constrained to a different sheet (mixed mode)
+    if (item.stockSheetId && item.stockSheetId !== sheetOdooId) continue;
+
     for (let spaceIndex = 0; spaceIndex < spaces.length; spaceIndex += 1) {
       const s = spaces[spaceIndex];
 
