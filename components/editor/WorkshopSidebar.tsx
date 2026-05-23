@@ -112,7 +112,10 @@ export function WorkshopSidebar({
         newModuleParentId={mo.newModuleParentId}
         collapsed={collapsed.modules}
         onToggleCollapse={() => toggleCollapsed("modules")}
-        onAddModule={mo.addModule}
+        onAddModule={() => {
+          if (collapsed.modules) toggleCollapsed("modules");
+          mo.addModule();
+        }}
         onRemoveModule={mo.removeModule}
         onConfirmAddModule={mo.confirmAddModule}
         onSetNewModuleName={mo.setNewModuleName}
