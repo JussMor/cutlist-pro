@@ -149,9 +149,11 @@ function findBestCandidate(
     for (let spaceIndex = 0; spaceIndex < spaces.length; spaceIndex += 1) {
       const s = spaces[spaceIndex];
 
+      const canRotate =
+        !item.grainDirection || item.grainDirection === "none";
       const trials: Array<{ rotated: boolean; w: number; h: number }> = [
         { rotated: false, w: item.W, h: item.L },
-        { rotated: true, w: item.L, h: item.W },
+        ...(canRotate ? [{ rotated: true, w: item.L, h: item.W }] : []),
       ];
 
       for (const trial of trials) {
