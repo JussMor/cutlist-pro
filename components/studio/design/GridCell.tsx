@@ -118,7 +118,9 @@ export function GridCell({
         </span>
       )}
 
-      {(cell.type === "shelf" || cell.type === "multiple") && (
+      {/* "multiple" is an open/empty compartment (matches the 3D, which builds
+          no content for it) — only "shelf" draws divider lines. */}
+      {cell.type === "shelf" && (
         <div className="absolute inset-x-2 inset-y-2 flex flex-col justify-evenly">
           {Array.from({ length: shelfCount }).map((_, i) => (
             <span
