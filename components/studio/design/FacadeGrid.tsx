@@ -10,6 +10,7 @@ const LETTERS = "ABCDEFGHIJ";
 export function FacadeGrid() {
   const doc = useStudioStore((s) => s.doc);
   const selection = useStudioStore((s) => s.selection);
+  const colorMode = useStudioStore((s) => s.colorMode);
   const toggleSelect = useStudioStore((s) => s.toggleSelect);
   const addColumn = useStudioStore((s) => s.addColumn);
   const addCell = useStudioStore((s) => s.addCellToColumn);
@@ -38,26 +39,29 @@ export function FacadeGrid() {
 
   return (
     <div
-      className="flex min-h-full items-center justify-center gap-3 p-6"
+      className="flex min-h-full items-end justify-center gap-3 p-6"
       onClick={clearSelection}
     >
       <AddAffordance
         title="Agregar columna al inicio"
         onClick={() => addColumn(0)}
-        className="mb-10"
+        className="mb-12"
       />
       {doc.columns.map((col, ci) => (
         <div key={col.id} className="flex flex-col items-center gap-2">
           <AddAffordance
-            title="Agregar módulo"
+            title="Agregar módulo encima"
             onClick={() => addCell(col.id)}
           />
+          {/* cells[] is bottom -> top; flex-col-reverse stacks the first
+              element on the floor so the column grows up from a shared base. */}
           <div className="flex flex-col-reverse">
             {col.cells.map((cell) => (
               <GridCell
                 key={cell.id}
                 cell={cell}
                 columnWidth={col.width}
+                colorMode={colorMode}
                 selected={selSet.has(cell.id)}
                 onSelect={toggleSelect}
               />
@@ -76,7 +80,7 @@ export function FacadeGrid() {
       <AddAffordance
         title="Agregar columna al final"
         onClick={() => addColumn(doc.columns.length)}
-        className="mb-10"
+        className="mb-12"
       />
     </div>
   );
