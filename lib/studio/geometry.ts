@@ -315,42 +315,32 @@ export function assemblyBounds(boxes: Box3D[]): Bounds {
   };
 }
 
-function thicknessAxis(size: [number, number, number]): number {
-  let a = 0;
-  for (let i = 1; i < 3; i += 1) if (size[i] < size[a]) a = i;
-  return a;
-}
-
-/** Offsets each box outward from the assembly center along its thickness axis. */
-export function explode(boxes: Box3D[], factor: number): Box3D[] {
-  if (factor <= 0) return boxes;
-  const { center } = assemblyBounds(boxes);
-  return boxes.map((b) => {
-    const a = thicknessAxis(b.size);
-    const dir = Math.sign(b.pos[a] - center[a]) || 1;
-    const pos: [number, number, number] = [...b.pos];
-    pos[a] += dir * factor;
-    return { ...b, pos };
-  });
-}
-
-function drawerOffset(box: Box3D): [number, number, number] {
+/** Drawers stay assembled and slide out toward the front-left as one unit. */
+function drawerOffset(box: Box3D, dy: number): [number, number, number] {
   const d = box.meta?.drawer ?? 0;
-  const unit = 0.16 + d * 0.08;
+  const depth = 0.22 + d * 0.07; // stagger stacked drawers along depth (front)
+  const vy = dy * 0.7; // fan drawers from different cells apart vertically
   if (box.role === "drawer-front") {
-    return [-0.5 - d * 0.03, 0, -unit - 0.08];
+    return [-0.62 - d * 0.03, vy, -depth - 0.1];
   }
   if (box.role === "drawer-side") {
-    const side = box.meta?.side === "left" ? -0.025 : 0.025;
-    return [-0.34 - d * 0.03 + side, 0, -unit];
+    const side = box.meta?.side === "left" ? -0.03 : 0.03;
+    return [-0.42 - d * 0.03 + side, vy, -depth];
   }
-  return [-0.34 - d * 0.03, 0, -unit];
+  return [-0.42 - d * 0.03, vy, -depth];
 }
 
+/**
+ * Per-role explosion offset. Each term mixes a fixed minimum separation with a
+ * component proportional to the part's distance from the assembly center, so
+ * stacks of decks / rows of sides fan apart instead of collapsing on top of
+ * one another (which made the previous expanded view look cramped).
+ */
 function expandedOffset(box: Box3D, center: [number, number, number]): [number, number, number] {
-  const [x, y, z] = box.pos;
-  const sx = Math.sign(x - center[0]) || (box.meta?.side === "left" ? -1 : 1);
-  const sy = Math.sign(y - center[1]) || 1;
+  const [x, y] = box.pos;
+  const dx = x - center[0];
+  const dy = y - center[1];
+  const sx = Math.sign(dx) || (box.meta?.side === "left" ? -1 : 1);
 
   switch (box.role) {
     case "drawer-front":
@@ -358,18 +348,24 @@ function expandedOffset(box: Box3D, center: [number, number, number]): [number, 
     case "drawer-back":
     case "drawer-bottom":
     case "drawer-inner-front":
-      return drawerOffset(box);
-    case "door":
-      return [sx * 0.22, 0, -0.2];
+      return drawerOffset(box, dy);
+    case "door": {
+      // doors stay flat (closed) but line up to the front-left, fanned by cell
+      const lr = box.meta?.side === "right" ? 0.12 : -0.12;
+      return [-0.5 + lr, dy * 0.7, -0.45];
+    }
     case "side":
-      return [sx * 0.2, 0, 0.02];
+      // structural sides fan outward in x so internal partitions separate
+      return [sx * 0.35 + dx * 0.9, 0, 0.02];
     case "back":
-      return [0, 0, 0.24];
+      // back panels slide straight back, fanned vertically by cell
+      return [0, dy * 0.7, 0.5];
     case "deck":
     case "shelf":
-      return [0, sy * 0.16, 0];
+      // decks/shelves fan vertically and pull forward, clear of the sides
+      return [0, dy * 1.0, -0.12];
     default:
-      return [0, 0, z > center[2] ? 0.12 : -0.12];
+      return [0, dy * 0.6, 0];
   }
 }
 
