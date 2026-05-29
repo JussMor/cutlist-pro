@@ -188,6 +188,7 @@ function doorBox(
       pos: [hingeX + dir * width / 2, cy, -t / 2],
       size: [width, height, t],
       color: ROLE_COLORS.door,
+      rotation: [0, 0, 0],
       meta: { side: hinge },
     };
   }
