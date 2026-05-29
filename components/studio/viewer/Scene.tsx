@@ -66,7 +66,9 @@ export default function Scene({
   colorMode: ColorMode;
 }) {
   const boxes = useMemo(() => {
-    const base = buildAssembly(doc, mode === "closed" ? "closed" : "open");
+    // Expanded shows the cabinet disassembled with the doors flat (closed), so
+    // it builds closed geometry and then explodes it; only "open" swings doors.
+    const base = buildAssembly(doc, mode === "open" ? "open" : "closed");
     return mode === "expanded" ? expandAssembly(base) : base;
   }, [doc, mode]);
 
