@@ -12,4 +12,8 @@ export const ROLE_COLORS: Record<BoxRole, string> = {
   back: "#8a93a6", // muted gray
   door: "#f4b450", // accent yellow
   "drawer-front": "#f4b450",
+  "drawer-side": "#d8dde2",
+  "drawer-back": "#c6ccd3",
+  "drawer-bottom": "#eceff2",
+  "drawer-inner-front": "#bfc6cf",
 };

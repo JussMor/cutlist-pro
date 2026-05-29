@@ -9,6 +9,10 @@ const ROLE_TO_COLOR: Record<StudioPanel["role"], string> = {
   "vertical-side": ROLE_COLORS.side,
   door: ROLE_COLORS.door,
   "drawer-front": ROLE_COLORS["drawer-front"],
+  "drawer-side": ROLE_COLORS["drawer-side"],
+  "drawer-back": ROLE_COLORS["drawer-back"],
+  "drawer-bottom": ROLE_COLORS["drawer-bottom"],
+  "drawer-inner-front": ROLE_COLORS["drawer-inner-front"],
 };
 
 // Lightweight SVG iso wireframe — far cheaper than a <Canvas> per card.
