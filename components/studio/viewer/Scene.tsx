@@ -7,10 +7,28 @@ import { useMemo } from "react";
 import type { StudioDocument } from "@/lib/studio/document";
 import {
   assemblyBounds,
+  type Box3D,
   buildAssembly,
   expandAssembly,
 } from "@/lib/studio/geometry";
 import type { ColorMode, RenderMode } from "@/store/studioStore";
+
+// The 2D facade editor lays columns out left→right with increasing x. A 3D
+// *front* view (the camera sits in front of the doors, on −z) naturally mirrors
+// x on screen, so a column added on the right showed up on the left. Mirror the
+// built geometry across x for display only — geometry.ts stays the single
+// source of truth for the despiece. Negating pos.x and the y-rotation yields a
+// correctly-wound box (no inverted normals), and assemblyBounds/camera/floor
+// all consume the mirrored boxes so framing stays centered.
+function mirrorForView(b: Box3D): Box3D {
+  return {
+    ...b,
+    pos: [-b.pos[0], b.pos[1], b.pos[2]],
+    rotation: b.rotation
+      ? [b.rotation[0], -b.rotation[1], b.rotation[2]]
+      : b.rotation,
+  };
+}
 
 import { PanelMesh } from "./PanelMesh";
 
@@ -69,7 +87,8 @@ export default function Scene({
     // Expanded shows the cabinet disassembled with the doors flat (closed), so
     // it builds closed geometry and then explodes it; only "open" swings doors.
     const base = buildAssembly(doc, mode === "open" ? "open" : "closed");
-    return mode === "expanded" ? expandAssembly(base) : base;
+    const laid = mode === "expanded" ? expandAssembly(base) : base;
+    return laid.map(mirrorForView);
   }, [doc, mode]);
 
   const bounds = useMemo(() => assemblyBounds(boxes), [boxes]);
