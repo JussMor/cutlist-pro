@@ -6,8 +6,8 @@ their own D1 database and KV namespace.
 
 | Resource        | Production                         | Staging                                     |
 | --------------- | ---------------------------------- | ------------------------------------------- |
-| API worker      | `cutlist-pro`                      | `cutlist-pro-staging`                       |
-| Frontend worker | `cutlist-pro-frontend`             | `cutlist-pro-frontend-staging`              |
+| API worker      | `cutlist-pro`                      | `staging-cutlist-pro`                       |
+| Frontend worker | `cutlist-pro-frontend`             | `staging-cutlist-pro-frontend`              |
 | D1 database     | `cutlist-db`                       | `cutlist-db-staging` (separate data)        |
 | KV namespace    | (prod id)                          | `cutlist-pro-staging-kv` (separate)         |
 | Config files    | `wrangler*.toml`                   | `wrangler.staging.toml`, `wrangler.frontend.staging.toml` |
@@ -29,7 +29,7 @@ git push origin <your-branch>:staging
 ```
 
 The workflow: typecheck + lint → deploy API → apply D1 migrations → build the
-frontend with `NEXT_PUBLIC_API_URL=https://cutlist-pro-staging.jussmor.workers.dev`
+frontend with `NEXT_PUBLIC_API_URL=https://staging-cutlist-pro.jussmor.workers.dev`
 inlined → deploy the frontend.
 
 ## Manual deploy (local, requires `wrangler login`)
@@ -37,7 +37,7 @@ inlined → deploy the frontend.
 ```bash
 npm run worker:deploy:staging
 npm run db:migrate:staging
-NEXT_PUBLIC_API_URL=https://cutlist-pro-staging.jussmor.workers.dev npm run frontend:deploy:staging
+NEXT_PUBLIC_API_URL=https://staging-cutlist-pro.jussmor.workers.dev npm run frontend:deploy:staging
 ```
 
 ## Secrets — Odoo API key
@@ -66,9 +66,9 @@ secrets are injected into `env` exactly like vars.
 ## Verify staging is live (and prod is untouched)
 
 ```bash
-curl https://cutlist-pro-staging.jussmor.workers.dev/api/health      # {ok:true}
-curl https://cutlist-pro-staging.jussmor.workers.dev/api/projects    # empty -> separate DB
+curl https://staging-cutlist-pro.jussmor.workers.dev/api/health      # {ok:true}
+curl https://staging-cutlist-pro.jussmor.workers.dev/api/projects    # empty -> separate DB
 ```
 
-Open `https://cutlist-pro-frontend-staging.jussmor.workers.dev/studio` and
+Open `https://staging-cutlist-pro-frontend.jussmor.workers.dev/studio` and
 confirm in the network tab that API calls hit the **staging** API host.

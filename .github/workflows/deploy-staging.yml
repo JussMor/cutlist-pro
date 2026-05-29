@@ -1,6 +1,6 @@
 name: Deploy staging
 
-# Deploys the isolated staging stack (cutlist-pro-staging + cutlist-pro-frontend-staging)
+# Deploys the isolated staging stack (staging-cutlist-pro + staging-cutlist-pro-frontend)
 # on every push to the `staging` branch. Production (cutlist-pro / cutlist-pro-frontend)
 # is never touched by this workflow.
 on:
@@ -18,7 +18,7 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      STAGING_API_URL: https://cutlist-pro-staging.jussmor.workers.dev
+      STAGING_API_URL: https://staging-cutlist-pro.jussmor.workers.dev
     steps:
       - uses: actions/checkout@v4
 
