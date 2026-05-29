@@ -63,7 +63,7 @@ export function createCell(type: CellType = "shelf"): StudioCell {
   return { id: genId("cell"), type, height: DEFAULT_CELL_HEIGHT, shelfCount: 1 };
 }
 
-export function createColumn(cells = 2): StudioColumn {
+export function createColumn(cells = 1): StudioColumn {
   return {
     id: genId("col"),
     width: DEFAULT_COLUMN_WIDTH,
@@ -76,7 +76,7 @@ export function createStudioDocument(title = "untitled"): StudioDocument {
   return {
     id: genId("studio"),
     title,
-    columns: [createColumn(2), createColumn(2)],
+    columns: [],
     globals: { ...DEFAULT_GLOBALS },
     createdAt: now,
     updatedAt: now,
@@ -100,7 +100,7 @@ export function addColumn(
 ): StudioDocument {
   const columns = [...doc.columns];
   const idx = Math.max(0, Math.min(atIndex, columns.length));
-  columns.splice(idx, 0, createColumn(2));
+  columns.splice(idx, 0, createColumn(1));
   return touch({ ...doc, columns });
 }
 

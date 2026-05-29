@@ -12,7 +12,11 @@ export type PanelRoleStudio =
   | "horizontal-deck"
   | "vertical-side"
   | "door"
-  | "drawer-front";
+  | "drawer-front"
+  | "drawer-side"
+  | "drawer-back"
+  | "drawer-bottom"
+  | "drawer-inner-front";
 
 export type Orientation = "vertical-xy" | "horizontal-xz" | "vertical-yz";
 
@@ -60,6 +64,10 @@ const ROLE_BADGE: Record<PanelRoleStudio, string> = {
   "vertical-side": "S",
   door: "D",
   "drawer-front": "F",
+  "drawer-side": "DS",
+  "drawer-back": "DB",
+  "drawer-bottom": "DF",
+  "drawer-inner-front": "IF",
 };
 
 const round = (v: number) => Math.round(v * 1000) / 1000;
@@ -74,15 +82,25 @@ function rawFromBox(box: Box3D): RawPanel {
     back: "back-panel",
     door: "door",
     "drawer-front": "drawer-front",
+    "drawer-side": "drawer-side",
+    "drawer-back": "drawer-back",
+    "drawer-bottom": "drawer-bottom",
+    "drawer-inner-front": "drawer-inner-front",
   };
   const r = role[box.role];
   if (r === "vertical-side") {
     return { role: r, orientation: "vertical-yz", width: round(sz), height: round(sy), thickness: round(sx) };
   }
+  if (r === "drawer-side") {
+    return { role: r, orientation: "vertical-yz", width: round(sz), height: round(sy), thickness: round(sx) };
+  }
   if (r === "horizontal-deck") {
     return { role: r, orientation: "horizontal-xz", width: round(sx), height: round(sz), thickness: round(sy) };
   }
-  // back-panel, door, drawer-front: flat in the x-y plane
+  if (r === "drawer-bottom") {
+    return { role: r, orientation: "horizontal-xz", width: round(sx), height: round(sz), thickness: round(sy) };
+  }
+  // back-panel, door, drawer-front/back/inner-front: flat in the x-y plane
   return { role: r, orientation: "vertical-xy", width: round(sx), height: round(sy), thickness: round(sz) };
 }
 
@@ -116,7 +134,7 @@ function operationsForPanel(p: StudioPanel): StudioOperation[] {
   if (p.role === "door") {
     ops.push({ type: "hinge-bore", targetRole: p.role, diameter: 0.035, depth: 0.012, through: false, qty: p.qty * 2 });
   }
-  if (p.role === "drawer-front") {
+  if (p.role === "drawer-front" || p.role === "drawer-side") {
     ops.push({ type: "slide-pilot", targetRole: p.role, diameter: 0.004, depth: 0.01, through: false, qty: p.qty * 4 });
   }
   return ops;

@@ -17,9 +17,28 @@ export function FacadeGrid() {
 
   const selSet = new Set(selection);
 
+  if (doc.columns.length === 0) {
+    return (
+      <div
+        className="flex min-h-full items-center justify-center gap-24 p-6"
+        onClick={clearSelection}
+      >
+        <AddAffordance
+          title="Agregar primera columna"
+          onClick={() => addColumn(0)}
+        />
+        <span className="text-sm text-[#817c78]">No columns yet</span>
+        <AddAffordance
+          title="Agregar primera columna"
+          onClick={() => addColumn(0)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
-      className="flex min-h-full items-end justify-center gap-3 p-6"
+      className="flex min-h-full items-center justify-center gap-3 p-6"
       onClick={clearSelection}
     >
       <AddAffordance

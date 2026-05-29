@@ -23,18 +23,21 @@ import {
 } from "@/lib/studio/document";
 
 export type StudioTab = "design" | "cutlist";
-export type RenderMode = "solid" | "wireframe" | "exploded";
+export type RenderMode = "closed" | "open" | "expanded";
+export type ColorMode = "colored" | "uncolored";
 
 interface StudioState {
   doc: StudioDocument;
   activeTab: StudioTab;
   renderMode: RenderMode;
+  colorMode: ColorMode;
   selection: string[]; // selected cell ids
   saving: boolean;
   publishedAt?: number;
 
   setActiveTab: (tab: StudioTab) => void;
   setRenderMode: (mode: RenderMode) => void;
+  setColorMode: (mode: ColorMode) => void;
   setTitle: (title: string) => void;
 
   setSelection: (ids: string[]) => void;
@@ -66,12 +69,14 @@ function selectedColumnIds(doc: StudioDocument, selection: string[]): string[] {
 export const useStudioStore = create<StudioState>((set, get) => ({
   doc: createStudioDocument(),
   activeTab: "design",
-  renderMode: "solid",
+  renderMode: "open",
+  colorMode: "colored",
   selection: [],
   saving: false,
 
   setActiveTab: (activeTab) => set({ activeTab }),
   setRenderMode: (renderMode) => set({ renderMode }),
+  setColorMode: (colorMode) => set({ colorMode }),
   setTitle: (title) => set((s) => ({ doc: { ...s.doc, title } })),
 
   setSelection: (selection) => set({ selection }),

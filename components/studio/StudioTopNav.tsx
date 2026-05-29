@@ -2,10 +2,13 @@
 
 import {
   Box,
+  Boxes,
   ChevronLeft,
-  Grid3x3,
-  Layers,
+  DraftingCompass,
+  DoorClosed,
+  DoorOpen,
   MoreVertical,
+  Palette,
   Upload,
 } from "lucide-react";
 import Link from "next/link";
@@ -18,14 +21,23 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { useStudioStore, type RenderMode } from "@/store/studioStore";
+import {
+  useStudioStore,
+  type ColorMode,
+  type RenderMode,
+} from "@/store/studioStore";
 
 import { StudioTabs } from "./StudioTabs";
 
 const MODES: { id: RenderMode; icon: typeof Box; label: string }[] = [
-  { id: "solid", icon: Box, label: "Solid" },
-  { id: "wireframe", icon: Grid3x3, label: "Wireframe" },
-  { id: "exploded", icon: Layers, label: "Exploded" },
+  { id: "closed", icon: DoorClosed, label: "Closed" },
+  { id: "open", icon: DoorOpen, label: "Open" },
+  { id: "expanded", icon: Boxes, label: "Expanded" },
+];
+
+const COLOR_MODES: { id: ColorMode; icon: typeof Box; label: string }[] = [
+  { id: "uncolored", icon: DraftingCompass, label: "Uncolored" },
+  { id: "colored", icon: Palette, label: "Colored" },
 ];
 
 export function StudioTopNav() {
@@ -34,6 +46,8 @@ export function StudioTopNav() {
   const activeTab = useStudioStore((s) => s.activeTab);
   const renderMode = useStudioStore((s) => s.renderMode);
   const setRenderMode = useStudioStore((s) => s.setRenderMode);
+  const colorMode = useStudioStore((s) => s.colorMode);
+  const setColorMode = useStudioStore((s) => s.setColorMode);
   const save = useStudioStore((s) => s.save);
   const publish = useStudioStore((s) => s.publish);
   const newDocument = useStudioStore((s) => s.newDocument);
@@ -106,24 +120,44 @@ export function StudioTopNav() {
 
       <div className="flex items-center gap-2">
         {activeTab === "design" && (
-          <div className="flex items-center gap-1 rounded-full bg-[#11151d] p-1">
-            {MODES.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                title={m.label}
-                onClick={() => setRenderMode(m.id)}
-                className={cn(
-                  "flex size-7 items-center justify-center rounded-full transition",
-                  renderMode === m.id
-                    ? "bg-[#e8eaee] text-[#0b0e14]"
-                    : "text-[#9aa4b6] hover:text-[#d7dde9]",
-                )}
-              >
-                <m.icon className="size-4" />
-              </button>
-            ))}
-          </div>
+          <>
+            <div className="flex items-center gap-1 rounded-full bg-[#11151d] p-1">
+              {MODES.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  title={m.label}
+                  onClick={() => setRenderMode(m.id)}
+                  className={cn(
+                    "flex size-7 items-center justify-center rounded-full transition",
+                    renderMode === m.id
+                      ? "bg-[#e8eaee] text-[#0b0e14]"
+                      : "text-[#9aa4b6] hover:text-[#d7dde9]",
+                  )}
+                >
+                  <m.icon className="size-4" />
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1 rounded-full bg-[#11151d] p-1">
+              {COLOR_MODES.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  title={m.label}
+                  onClick={() => setColorMode(m.id)}
+                  className={cn(
+                    "flex size-7 items-center justify-center rounded-full transition",
+                    colorMode === m.id
+                      ? "bg-[#e8eaee] text-[#0b0e14]"
+                      : "text-[#9aa4b6] hover:text-[#d7dde9]",
+                  )}
+                >
+                  <m.icon className="size-4" />
+                </button>
+              ))}
+            </div>
+          </>
         )}
         {status && (
           <span className="text-xs text-[#84c7a6]">{status}</span>
