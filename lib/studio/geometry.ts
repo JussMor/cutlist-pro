@@ -94,12 +94,12 @@ function addCellContent(boxes: Box3D[], cell: StudioCell, ctx: CellCtx): void {
       const drawerDepth = Math.max(0.05, D - 0.07);
       const sideH = Math.max(0.04, Math.min(0.12, fh * 0.58));
       const drawerInnerW = Math.max(0.02, innerW - sideT * 2);
-      const frontZ = t / 2;
+      const frontZ = -t / 2;
       const drawerCenterZ = t + drawerDepth / 2;
       for (let d = 0; d < n; d += 1) {
         const yy = bottom + gap / 2 + fh / 2 + d * (ch / n);
         const boxY = Math.max(bottom + bottomT / 2, yy - fh * 0.1);
-        const openZ = state === "open" ? -(0.14 + d * 0.06) : 0;
+        const openZ = state === "open" ? -(0.14 + (n - 1 - d) * 0.06) : 0;
         boxes.push({
           id: `drawer-${ci}-${idx}-${d}`,
           role: "drawer-front",
@@ -185,7 +185,7 @@ function doorBox(
     return {
       id,
       role: "door",
-      pos: [hingeX + dir * width / 2, cy, t / 2],
+      pos: [hingeX + dir * width / 2, cy, -t / 2],
       size: [width, height, t],
       color: ROLE_COLORS.door,
       meta: { side: hinge },
@@ -200,7 +200,7 @@ function doorBox(
     pos: [
       hingeX + dir * Math.cos(angle) * width / 2,
       cy,
-      t / 2 - Math.sin(angle) * width / 2,
+      -t / 2 - Math.sin(angle) * width / 2,
     ],
     size: [width, height, t],
     color: ROLE_COLORS.door,
