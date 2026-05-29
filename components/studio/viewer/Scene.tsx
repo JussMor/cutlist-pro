@@ -77,7 +77,7 @@ export default function Scene({
   return (
     <Canvas
       camera={{
-        position: [cx + radius * 2.7, cy + radius * 1.75, cz + radius * 3.6],
+        position: [cx + radius * 2.7, cy + radius * 1.75, cz - radius * 3.6],
         fov: 38,
       }}
       dpr={[1, 2]}
