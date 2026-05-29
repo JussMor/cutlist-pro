@@ -2,7 +2,8 @@
  * lib/studio/despiece.ts
  * Pure engine: StudioDocument -> grouped panel cutlist + machining operations.
  * Derived from the same boxes as the 3D viewer (buildAssembly) so the cutlist
- * and the model can never drift. All dimensions are METERS to match the model.
+ * and the model can never drift. Public panel dimensions are CENTIMETERS so
+ * they match the optimizer and the Studio authoring units.
  */
 import { buildAssembly, type Box3D, type BoxRole } from "./geometry";
 import type { StudioDocument } from "./document";
@@ -71,6 +72,7 @@ const ROLE_BADGE: Record<PanelRoleStudio, string> = {
 };
 
 const round = (v: number) => Math.round(v * 1000) / 1000;
+const toCm = (v: number) => Math.round(v * 1000) / 10;
 
 /** Map a 3D box to its flat-panel cut dimensions + orientation. */
 function rawFromBox(box: Box3D): RawPanel {
@@ -89,19 +91,19 @@ function rawFromBox(box: Box3D): RawPanel {
   };
   const r = role[box.role];
   if (r === "vertical-side") {
-    return { role: r, orientation: "vertical-yz", width: round(sz), height: round(sy), thickness: round(sx) };
+    return { role: r, orientation: "vertical-yz", width: toCm(sz), height: toCm(sy), thickness: toCm(sx) };
   }
   if (r === "drawer-side") {
-    return { role: r, orientation: "vertical-yz", width: round(sz), height: round(sy), thickness: round(sx) };
+    return { role: r, orientation: "vertical-yz", width: toCm(sz), height: toCm(sy), thickness: toCm(sx) };
   }
   if (r === "horizontal-deck") {
-    return { role: r, orientation: "horizontal-xz", width: round(sx), height: round(sz), thickness: round(sy) };
+    return { role: r, orientation: "horizontal-xz", width: toCm(sx), height: toCm(sz), thickness: toCm(sy) };
   }
   if (r === "drawer-bottom") {
-    return { role: r, orientation: "horizontal-xz", width: round(sx), height: round(sz), thickness: round(sy) };
+    return { role: r, orientation: "horizontal-xz", width: toCm(sx), height: toCm(sz), thickness: toCm(sy) };
   }
   // back-panel, door, drawer-front/back/inner-front: flat in the x-y plane
-  return { role: r, orientation: "vertical-xy", width: round(sx), height: round(sy), thickness: round(sz) };
+  return { role: r, orientation: "vertical-xy", width: toCm(sx), height: toCm(sy), thickness: toCm(sz) };
 }
 
 function panelKey(p: RawPanel): string {
@@ -120,8 +122,8 @@ function operationsForPanel(p: StudioPanel): StudioOperation[] {
         type: "rail-cut",
         targetRole: p.role,
         face,
-        depth: 0.005,
-        width: 0.021,
+        depth: 0.5,
+        width: 2.1,
         length,
         through: false,
         qty: p.qty,
@@ -129,13 +131,13 @@ function operationsForPanel(p: StudioPanel): StudioOperation[] {
     }
   }
   if (p.role === "back-panel") {
-    ops.push({ type: "groove", targetRole: p.role, depth: 0.008, width: round(p.thickness), length: round(p.width), through: false, qty: p.qty });
+    ops.push({ type: "groove", targetRole: p.role, depth: 0.8, width: round(p.thickness), length: round(p.width), through: false, qty: p.qty });
   }
   if (p.role === "door") {
-    ops.push({ type: "hinge-bore", targetRole: p.role, diameter: 0.035, depth: 0.012, through: false, qty: p.qty * 2 });
+    ops.push({ type: "hinge-bore", targetRole: p.role, diameter: 3.5, depth: 1.2, through: false, qty: p.qty * 2 });
   }
   if (p.role === "drawer-front" || p.role === "drawer-side") {
-    ops.push({ type: "slide-pilot", targetRole: p.role, diameter: 0.004, depth: 0.01, through: false, qty: p.qty * 4 });
+    ops.push({ type: "slide-pilot", targetRole: p.role, diameter: 0.4, depth: 1, through: false, qty: p.qty * 4 });
   }
   return ops;
 }

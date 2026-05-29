@@ -12,7 +12,8 @@ import {
   Upload,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +42,7 @@ const COLOR_MODES: { id: ColorMode; icon: typeof Box; label: string }[] = [
 ];
 
 export function StudioTopNav() {
+  const router = useRouter();
   const title = useStudioStore((s) => s.doc.title);
   const setTitle = useStudioStore((s) => s.setTitle);
   const activeTab = useStudioStore((s) => s.activeTab);
@@ -54,6 +56,7 @@ export function StudioTopNav() {
   const saving = useStudioStore((s) => s.saving);
 
   const [status, setStatus] = useState<string | null>(null);
+  const lastSavedTitleRef = useRef(title);
   const flash = (msg: string) => {
     setStatus(msg);
     setTimeout(() => setStatus(null), 2500);
@@ -74,6 +77,24 @@ export function StudioTopNav() {
       flash("Publish failed");
     }
   };
+  const handleNewDocument = () => {
+    newDocument();
+    router.push("/studio");
+    flash("New project");
+  };
+
+  useEffect(() => {
+    if (title === lastSavedTitleRef.current) return;
+    const timeout = setTimeout(() => {
+      save()
+        .then(() => {
+          lastSavedTitleRef.current = title;
+          flash("Saved");
+        })
+        .catch(() => flash("Save failed"));
+    }, 700);
+    return () => clearTimeout(timeout);
+  }, [save, title]);
 
   return (
     <header className="flex items-center justify-between gap-4 border-b border-[#1c2330] px-4 py-2.5">
@@ -88,6 +109,13 @@ export function StudioTopNav() {
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          onBlur={() => {
+            void handleSave();
+          }}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter") return;
+            e.currentTarget.blur();
+          }}
           aria-label="Document title"
           className="w-44 truncate bg-transparent text-sm font-medium text-[#d7dde9] outline-none placeholder:text-[#7d879a]"
         />
@@ -98,6 +126,12 @@ export function StudioTopNav() {
             </Button>
           </PopoverTrigger>
           <PopoverContent align="start" className="w-44 p-1">
+            <Link
+              href="/studio/projects"
+              className="block w-full rounded-md px-3 py-2 text-left text-xs text-[#d7dde9] hover:bg-[#11151d]"
+            >
+              Projects
+            </Link>
             <button
               type="button"
               onClick={handleSave}
@@ -107,10 +141,10 @@ export function StudioTopNav() {
             </button>
             <button
               type="button"
-              onClick={newDocument}
+              onClick={handleNewDocument}
               className="w-full rounded-md px-3 py-2 text-left text-xs text-[#d7dde9] hover:bg-[#11151d]"
             >
-              New document
+              New project
             </button>
           </PopoverContent>
         </Popover>
@@ -162,6 +196,14 @@ export function StudioTopNav() {
         {status && (
           <span className="text-xs text-[#84c7a6]">{status}</span>
         )}
+        <Button
+          variant="outline"
+          onClick={handleSave}
+          disabled={saving}
+          className="gap-1.5"
+        >
+          Save
+        </Button>
         <Button
           onClick={handlePublish}
           disabled={saving}

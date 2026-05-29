@@ -4,7 +4,7 @@
  * global dimensions. Pure interfaces + factory + pure mutators (each returns a
  * new document) so they slot directly into the Zustand `set` reducer.
  *
- * Units: width / height / depth are METERS; thickness / overhang are MILLIMETERS.
+ * Units: width / height / depth are CENTIMETERS; thickness / overhang are MILLIMETERS.
  * The despiece + geometry engines convert to a single working unit.
  */
 
@@ -19,19 +19,19 @@ export type CellType =
 export interface StudioCell {
   id: string;
   type: CellType;
-  height: number; // meters (clear opening height)
+  height: number; // centimeters (clear opening height)
   shelfCount?: number; // shelf / multiple
   drawerCount?: number; // drawer
 }
 
 export interface StudioColumn {
   id: string;
-  width: number; // meters
+  width: number; // centimeters
   cells: StudioCell[]; // bottom -> top
 }
 
 export interface StudioGlobals {
-  depth: number; // meters
+  depth: number; // centimeters
   thickness: number; // mm
   overhang: number; // mm
 }
@@ -45,12 +45,12 @@ export interface StudioDocument {
   updatedAt: number;
 }
 
-export const DEFAULT_COLUMN_WIDTH = 0.45;
-export const DEFAULT_CELL_HEIGHT = 0.3;
+export const DEFAULT_COLUMN_WIDTH = 45;
+export const DEFAULT_CELL_HEIGHT = 30;
 export const DEFAULT_GLOBALS: StudioGlobals = {
-  depth: 0.45,
+  depth: 45,
   thickness: 18,
-  overhang: 20,
+  overhang: 0,
 };
 
 let counter = 0;
@@ -143,7 +143,7 @@ export function updateColumnWidth(
 ): StudioDocument {
   const idSet = new Set(columnIds);
   const columns = doc.columns.map((col) =>
-    idSet.has(col.id) ? { ...col, width: Math.max(0.05, width) } : col,
+    idSet.has(col.id) ? { ...col, width: Math.max(5, width) } : col,
   );
   return touch({ ...doc, columns });
 }

@@ -2,7 +2,7 @@
 
 import type { StudioPanel } from "@/lib/studio/despiece";
 
-const fmt = (v: number) => v.toFixed(3);
+const fmt = (v: number) => v.toFixed(1);
 const TH = "py-2 px-3 font-medium";
 const TD = "py-2 px-3 text-[#9aa4b6]";
 
@@ -13,9 +13,9 @@ export function PanelCutlistTable({ panels }: { panels: StudioPanel[] }) {
         <tr className="text-left text-[#7d879a]">
           <th className={TH}>Role</th>
           <th className={TH}>Orientation</th>
-          <th className={TH}>Width</th>
-          <th className={TH}>Height</th>
-          <th className={TH}>Thickness</th>
+          <th className={TH}>Width (cm)</th>
+          <th className={TH}>Height (cm)</th>
+          <th className={TH}>Thickness (cm)</th>
           <th className={TH}>Qty</th>
         </tr>
       </thead>

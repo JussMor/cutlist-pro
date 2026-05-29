@@ -24,7 +24,7 @@ function cell(type: CellType, opts: Partial<StudioCell> = {}): StudioCell {
   return {
     id: nextId("cell"),
     type,
-    height: opts.height ?? 0.3,
+    height: opts.height ?? 30,
     shelfCount: opts.shelfCount,
     drawerCount: opts.drawerCount,
   };
@@ -47,27 +47,27 @@ function doc(title: string, columns: StudioColumn[]): StudioDocument {
 }
 
 const configs: StudioDocument[] = [
-  doc("tiny (1 col, doors)", [column(0.45, [cell("doors")])]),
+  doc("tiny (1 col, doors)", [column(45, [cell("doors")])]),
   doc("GOOD reference (screenshot 1)", [
-    column(0.45, [cell("doors"), cell("drawer", { drawerCount: 2 }), cell("doors")]),
-    column(0.45, [cell("shelf", { shelfCount: 1 })]),
+    column(45, [cell("doors"), cell("drawer", { drawerCount: 2 }), cell("doors")]),
+    column(45, [cell("shelf", { shelfCount: 1 })]),
   ]),
   doc("BAD regression (screenshot 2)", [
-    column(0.4, [
-      cell("doors", { height: 0.5 }),
-      cell("drawer", { drawerCount: 3, height: 0.45 }),
-      cell("doors", { height: 0.4 }),
+    column(40, [
+      cell("doors", { height: 50 }),
+      cell("drawer", { drawerCount: 3, height: 45 }),
+      cell("doors", { height: 40 }),
     ]),
-    column(0.45, [cell("shelf", { shelfCount: 1 })]),
+    column(45, [cell("shelf", { shelfCount: 1 })]),
   ]),
   doc("stress (4 cols mixed)", [
-    column(0.5, [cell("doors"), cell("drawer", { drawerCount: 3 })]),
-    column(0.35, [cell("shelf", { shelfCount: 3 }), cell("left-door")]),
-    column(0.6, [cell("drawer", { drawerCount: 2 }), cell("doors"), cell("shelf", { shelfCount: 2 })]),
-    column(0.3, [cell("right-door"), cell("multiple"), cell("drawer", { drawerCount: 1 })]),
+    column(50, [cell("doors"), cell("drawer", { drawerCount: 3 })]),
+    column(35, [cell("shelf", { shelfCount: 3 }), cell("left-door")]),
+    column(60, [cell("drawer", { drawerCount: 2 }), cell("doors"), cell("shelf", { shelfCount: 2 })]),
+    column(30, [cell("right-door"), cell("multiple"), cell("drawer", { drawerCount: 1 })]),
   ]),
   doc("tall single drawer-stack", [
-    column(0.45, Array.from({ length: 5 }, () => cell("drawer", { drawerCount: 1, height: 0.18 }))),
+    column(45, Array.from({ length: 5 }, () => cell("drawer", { drawerCount: 1, height: 18 }))),
   ]),
 ];
 

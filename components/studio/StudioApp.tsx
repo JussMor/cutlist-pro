@@ -11,10 +11,15 @@ import { DesignPane } from "./design/DesignPane";
 export function StudioApp({ documentId }: { documentId?: string }) {
   const activeTab = useStudioStore((s) => s.activeTab);
   const load = useStudioStore((s) => s.load);
+  const newDocument = useStudioStore((s) => s.newDocument);
 
   useEffect(() => {
-    if (documentId) load(documentId).catch(() => undefined);
-  }, [documentId, load]);
+    if (documentId) {
+      load(documentId).catch(() => undefined);
+      return;
+    }
+    newDocument();
+  }, [documentId, load, newDocument]);
 
   return (
     <div className="flex h-screen flex-col bg-[#07090d] text-[#d7dde9]">

@@ -72,7 +72,7 @@ export function FacadeGrid() {
               {LETTERS[ci] ?? ci + 1}
             </span>
             <span className="text-[11px] text-[#7d879a]">
-              {col.width.toFixed(2)} m
+              {col.width.toFixed(0)} cm
             </span>
           </div>
         </div>

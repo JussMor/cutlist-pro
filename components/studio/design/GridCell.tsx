@@ -4,7 +4,7 @@ import type { StudioCell } from "@/lib/studio/document";
 import { cn } from "@/lib/utils";
 import type { ColorMode } from "@/store/studioStore";
 
-export const SCALE = 260; // px per meter for the 2D facade
+export const SCALE = 4; // px per centimeter for the 2D facade
 
 interface Palette {
   front: string; // door / drawer front fill

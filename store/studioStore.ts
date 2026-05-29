@@ -77,7 +77,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   setActiveTab: (activeTab) => set({ activeTab }),
   setRenderMode: (renderMode) => set({ renderMode }),
   setColorMode: (colorMode) => set({ colorMode }),
-  setTitle: (title) => set((s) => ({ doc: { ...s.doc, title } })),
+  setTitle: (title) =>
+    set((s) => ({ doc: { ...s.doc, title, updatedAt: Date.now() } })),
 
   setSelection: (selection) => set({ selection }),
   toggleSelect: (id, additive) =>
