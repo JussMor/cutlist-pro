@@ -5,7 +5,7 @@ name: Deploy staging
 # is never touched by this workflow.
 on:
   push:
-    branches: [staging]
+    branches: [staging, claude/zen-euler-1OVLZ]
   workflow_dispatch:
 
 concurrency:
