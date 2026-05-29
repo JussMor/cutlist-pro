@@ -336,7 +336,7 @@ interface ExpandCtx {
   center: [number, number, number];
   D: number;  // cabinet depth; explosion distances are fractions of D
   R: number;  // horizontal span; used for the small outward side nudge
-  drawerAnchor: Map<string, [number, number, number]>;
+  drawerOffsetZ: Map<string, number>; // per-drawer rigid z translation
 }
 
 /**
@@ -345,21 +345,23 @@ interface ExpandCtx {
  * nudge slightly outward; decks/shelves are already spaced by cell heights so
  * they only need a depth snap to face the camera — no Y re-ordering needed.
  *
- *  doors   → pulled toward viewer (−Z); keep natural X and Y
- *  drawers → rigid unit pulled toward viewer (−Z)
+ *  doors   → pulled toward viewer so their center sits on the door plane (−0.85·D)
+ *  drawers → rigid unit pulled fully out so its REAR face lands on the door
+ *            plane — the drawer reads as completely extracted, back flush
+ *            with the doors
  *  sides   → small outward X nudge as bookends
  *  backs   → small Z push away from viewer
  *  decks   → depth snapped to C.z only; assembled Y spacing already separates them
  */
 function expandedOffset(box: Box3D, ctx: ExpandCtx): [number, number, number] {
   const { center: C, D, R } = ctx;
-  const [x, , z] = box.pos;
+  const z = box.pos[2];
 
   if (isDrawer(box)) {
-    // All five boxes of one drawer share the anchor → same offset → rigid unit.
-    const k = drawerKey(box);
-    const a = ctx.drawerAnchor.get(k) ?? [x, box.pos[1], z] as [number, number, number];
-    return [0, 0, -D * 0.65 - a[2]];
+    // All boxes of one drawer share this z → same offset → rigid unit. The
+    // offset is precomputed so the drawer's rear face aligns with the doors.
+    const dz = ctx.drawerOffsetZ.get(drawerKey(box)) ?? -D * 0.65 - z;
+    return [0, 0, dz];
   }
 
   switch (box.role) {
@@ -393,18 +395,22 @@ export function expandAssembly(boxes: Box3D[], factor = 1): Box3D[] {
   const D = Math.max(maxExtent(boxes, isSide, 2), size[2] * 0.8, 0.1);
   const R = Math.max(size[0], size[1], 0.3);
 
-  const drawerAnchor = new Map<string, [number, number, number]>();
-  const drawerMinY = new Map<string, number>();
+  // Door parts all settle at center z = −0.85·D (their offset cancels their
+  // assembled z). Pull each drawer out as a rigid unit so its rear-most face
+  // lands on that same plane — the drawer ends up fully extracted, its back
+  // flush with the doors instead of staying buried in the carcass.
+  const doorPlane = -0.85 * D;
+  const drawerRearZ = new Map<string, number>();
   for (const b of boxes) {
     if (!isDrawer(b)) continue;
     const k = drawerKey(b);
-    drawerMinY.set(k, Math.min(drawerMinY.get(k) ?? Infinity, b.pos[1]));
-    if (b.role === "drawer-front") {
-      drawerAnchor.set(k, [b.pos[0], b.pos[1], b.pos[2]]);
-    }
+    const rear = b.pos[2] + b.size[2] / 2;
+    drawerRearZ.set(k, Math.max(drawerRearZ.get(k) ?? -Infinity, rear));
   }
+  const drawerOffsetZ = new Map<string, number>();
+  for (const [k, rear] of drawerRearZ) drawerOffsetZ.set(k, doorPlane - rear);
 
-  const ctx: ExpandCtx = { center, D, R, drawerAnchor };
+  const ctx: ExpandCtx = { center, D, R, drawerOffsetZ };
 
   return boxes.map((box) => {
     const [dx, dy, dz] = expandedOffset(box, ctx);
