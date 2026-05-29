@@ -1,0 +1,142 @@
+"use client";
+
+import {
+  Box,
+  ChevronLeft,
+  Grid3x3,
+  Layers,
+  MoreVertical,
+  Upload,
+} from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { useStudioStore, type RenderMode } from "@/store/studioStore";
+
+import { StudioTabs } from "./StudioTabs";
+
+const MODES: { id: RenderMode; icon: typeof Box; label: string }[] = [
+  { id: "solid", icon: Box, label: "Solid" },
+  { id: "wireframe", icon: Grid3x3, label: "Wireframe" },
+  { id: "exploded", icon: Layers, label: "Exploded" },
+];
+
+export function StudioTopNav() {
+  const title = useStudioStore((s) => s.doc.title);
+  const setTitle = useStudioStore((s) => s.setTitle);
+  const activeTab = useStudioStore((s) => s.activeTab);
+  const renderMode = useStudioStore((s) => s.renderMode);
+  const setRenderMode = useStudioStore((s) => s.setRenderMode);
+  const save = useStudioStore((s) => s.save);
+  const publish = useStudioStore((s) => s.publish);
+  const newDocument = useStudioStore((s) => s.newDocument);
+  const saving = useStudioStore((s) => s.saving);
+
+  const [status, setStatus] = useState<string | null>(null);
+  const flash = (msg: string) => {
+    setStatus(msg);
+    setTimeout(() => setStatus(null), 2500);
+  };
+  const handleSave = async () => {
+    try {
+      await save();
+      flash("Saved");
+    } catch {
+      flash("Save failed");
+    }
+  };
+  const handlePublish = async () => {
+    try {
+      await publish();
+      flash("Published");
+    } catch {
+      flash("Publish failed");
+    }
+  };
+
+  return (
+    <header className="flex items-center justify-between gap-4 border-b border-[#1c2330] px-4 py-2.5">
+      <div className="flex min-w-0 items-center gap-2">
+        <Link
+          href="/"
+          className="flex size-7 items-center justify-center rounded-full text-[#9aa4b6] hover:bg-[#11151d] hover:text-[#d7dde9]"
+          title="Volver"
+        >
+          <ChevronLeft className="size-4" />
+        </Link>
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          aria-label="Document title"
+          className="w-44 truncate bg-transparent text-sm font-medium text-[#d7dde9] outline-none placeholder:text-[#7d879a]"
+        />
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon-sm" aria-label="Menu">
+              <MoreVertical className="size-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-44 p-1">
+            <button
+              type="button"
+              onClick={handleSave}
+              className="w-full rounded-md px-3 py-2 text-left text-xs text-[#d7dde9] hover:bg-[#11151d]"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={newDocument}
+              className="w-full rounded-md px-3 py-2 text-left text-xs text-[#d7dde9] hover:bg-[#11151d]"
+            >
+              New document
+            </button>
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      <StudioTabs />
+
+      <div className="flex items-center gap-2">
+        {activeTab === "design" && (
+          <div className="flex items-center gap-1 rounded-full bg-[#11151d] p-1">
+            {MODES.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                title={m.label}
+                onClick={() => setRenderMode(m.id)}
+                className={cn(
+                  "flex size-7 items-center justify-center rounded-full transition",
+                  renderMode === m.id
+                    ? "bg-[#e8eaee] text-[#0b0e14]"
+                    : "text-[#9aa4b6] hover:text-[#d7dde9]",
+                )}
+              >
+                <m.icon className="size-4" />
+              </button>
+            ))}
+          </div>
+        )}
+        {status && (
+          <span className="text-xs text-[#84c7a6]">{status}</span>
+        )}
+        <Button
+          onClick={handlePublish}
+          disabled={saving}
+          className="gap-1.5 bg-[#e8eaee] text-[#0b0e14] hover:bg-white"
+        >
+          <Upload className="size-4" />
+          Publish
+        </Button>
+      </div>
+    </header>
+  );
+}

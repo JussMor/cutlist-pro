@@ -1,0 +1,26 @@
+name = "cutlist-pro-staging"
+main = "workers/api.ts"
+compatibility_date = "2026-04-15"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cutlist-db-staging"
+database_id = "f71c6227-58b4-4d1f-9026-0b285d9ffce5"
+migrations_dir = "migrations"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "283537d17acf4b419388a63a9de2acf2"
+
+[vars]
+ODOO_URL = "https://www.panelexcenter.com"
+ODOO_USER = "jussmor16@gmail.com"
+ODOO_DB = "panelexcenter"
+ODOO_TAX_RATE = 0.15
+API_VERSION = "v1"
+# ODOO_API_KEY is NOT stored here. Set it once as an encrypted secret:
+#   wrangler secret put ODOO_API_KEY -c wrangler.staging.toml
+
+[dev]
+port = 8788
+local_protocol = "http"
