@@ -50,6 +50,10 @@ export function SelectionInspector() {
   const typeValue = types.length === 1 ? types[0] : undefined;
   const heightValue = heights.length === 1 ? heights[0] : undefined;
   const widthValue = widths.length === 1 ? widths[0] : undefined;
+  const drawerCounts = uniq(cells.map((c) => c.drawerCount ?? 2));
+  const shelfCounts = uniq(cells.map((c) => c.shelfCount ?? 1));
+  const drawerCountValue = drawerCounts.length === 1 ? drawerCounts[0] : undefined;
+  const shelfCountValue = shelfCounts.length === 1 ? shelfCounts[0] : undefined;
 
   return (
     <div className="rounded-xl border border-[#1f2735] bg-[#0d1119]/90 p-4 shadow-lg backdrop-blur">
@@ -60,7 +64,13 @@ export function SelectionInspector() {
         <label className="text-[#7d879a]">Type</label>
         <Select
           value={typeValue}
-          onValueChange={(v) => patch({ type: v as CellType })}
+          onValueChange={(v) =>
+            patch({
+              type: v as CellType,
+              ...(v === "drawer" ? { drawerCount: 2 } : {}),
+              ...(v === "shelf" ? { shelfCount: 1 } : {}),
+            })
+          }
         >
           <SelectTrigger className="border-[#f4b450]">
             <SelectValue placeholder="multiple" />
@@ -107,6 +117,42 @@ export function SelectionInspector() {
           />
           <span className="text-[#7d879a]">m</span>
         </div>
+
+        {typeValue === "drawer" && (
+          <>
+            <label className="text-[#7d879a]">Drawers</label>
+            <Input
+              type="number"
+              step={1}
+              min={1}
+              defaultValue={drawerCountValue ?? ""}
+              placeholder="mixed"
+              key={`d-${drawerCountValue ?? "mixed"}`}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10);
+                if (!Number.isNaN(v)) patch({ drawerCount: Math.max(1, v) });
+              }}
+            />
+          </>
+        )}
+
+        {typeValue === "shelf" && (
+          <>
+            <label className="text-[#7d879a]">Shelves</label>
+            <Input
+              type="number"
+              step={1}
+              min={0}
+              defaultValue={shelfCountValue ?? ""}
+              placeholder="mixed"
+              key={`s-${shelfCountValue ?? "mixed"}`}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10);
+                if (!Number.isNaN(v)) patch({ shelfCount: Math.max(0, v) });
+              }}
+            />
+          </>
+        )}
       </div>
       <Button
         variant="destructive"

@@ -18,9 +18,10 @@ const Scene = dynamic(() => import("./Scene"), {
 export function Viewer3D() {
   const doc = useStudioStore((s) => s.doc);
   const mode = useStudioStore((s) => s.renderMode);
+  const colorMode = useStudioStore((s) => s.colorMode);
   return (
     <div className="h-full w-full">
-      <Scene doc={doc} mode={mode} />
+      <Scene doc={doc} mode={mode} colorMode={colorMode} />
     </div>
   );
 }
