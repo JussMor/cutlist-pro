@@ -345,51 +345,51 @@ const drawerKey = (b: Box3D): string =>
 interface ExpandCtx {
   center: [number, number, number];
   deck: Map<string, LaneInfo>;
-  back: Map<string, LaneInfo>;
-  door: Map<string, LaneInfo>;
   drawer: Map<string, LaneInfo>;
 }
 
 /**
- * Per-role explosion offset. Parts fan out on the ground plane (x = sides,
- * z = decks) with even, index-based spacing so the disassembly reads as a clean
- * laid-out grid from the top: horizontal decks become a row of full faces,
- * vertical sides/backs become thin strips beside/behind them, and the doors and
- * (still-assembled) drawers slide out to the front-left.
+ * Per-role explosion offset, tuned for the default front-above camera: each
+ * part type is pulled into its own tidy, aligned lane rather than scattered.
+ *  - decks/shelves: an even VERTICAL stack down the centre (so they separate on
+ *    screen — spreading along depth would line them up behind one another)
+ *  - sides: thin vertical panels flanking left / right at mid-depth
+ *  - backs: a clean column lined up to the far right
+ *  - doors: flat (closed) in the far-left lane on a common front plane
+ *  - drawers: still assembled, slid out to the front-left as rigid units
+ * Single panels snap to an absolute target (offset = target - current) so the
+ * layout is identical regardless of cabinet position; drawers translate rigidly.
  */
 function expandedOffset(box: Box3D, ctx: ExpandCtx): [number, number, number] {
   const { center } = ctx;
-  const dx = box.pos[0] - center[0];
+  const [x, y, z] = box.pos;
+  const dx = x - center[0];
 
   if (isDrawer(box)) {
     // whole drawer translates as a rigid unit (uniform per drawer) to the
-    // front-left, staggered along depth so stacked drawers stay readable
+    // front-left, staggered so stacked drawers stay readable
     const info = ctx.drawer.get(drawerKey(box)) ?? { i: 0, n: 1 };
-    return [-0.95 - info.i * 0.05, 0, -0.5 - info.i * 0.22];
+    return [-1.5 - info.i * 0.05, 0, -0.6 - info.i * 0.18];
   }
 
   switch (box.role) {
-    case "door": {
-      // flat (closed) doors line up to the front-left, fanned along depth
-      const info = ctx.door.get(box.id) ?? { i: 0, n: 1 };
-      return [-0.7, 0, -0.35 + lane(info, 0.5)];
-    }
+    case "door":
+      // flat (closed) doors in the far-left lane on a common front plane;
+      // leaves keep their natural left/right spread and cell height
+      return [-1.5, 0, center[2] - 0.55 - z];
     case "side": {
-      // structural sides slide out as thin strips on their natural side
+      // sides flank left / right as thin vertical panels at mid-depth
       const sx = Math.sign(dx) || (box.meta?.side === "left" ? -1 : 1);
-      return [sx * 0.6 + dx * 0.3, 0, 0];
+      return [sx * 0.8 + dx * 0.3, 0, center[2] - z];
     }
-    case "back": {
-      // back panels line up behind the cabinet, fanned along depth (their thin
-      // axis) so they separate cleanly instead of overlapping face-to-face
-      const info = ctx.back.get(box.id) ?? { i: 0, n: 1 };
-      return [0, 0, 0.7 + lane(info, 0.3)];
-    }
+    case "back":
+      // back panels line up as a tidy column to the far right, at mid-depth
+      return [center[0] + 1.5 - x, 0, center[2] - z];
     case "deck":
     case "shelf": {
-      // decks/shelves become an even row of faces along depth (keep x & height)
+      // even vertical stack (keep column x), brought to mid-depth and aligned
       const info = ctx.deck.get(box.id) ?? { i: 0, n: 1 };
-      return [0, 0, center[2] + lane(info, 0.62) - box.pos[2]];
+      return [0, center[1] + lane(info, 0.34) - y, center[2] - z];
     }
     default:
       return [0, 0, 0];
@@ -397,17 +397,15 @@ function expandedOffset(box: Box3D, ctx: ExpandCtx): [number, number, number] {
 }
 
 /**
- * Role-aware exploded layout for inspection. Parts spread on the ground plane
- * with even spacing so the view stays readable from the top; drawers stay
- * assembled and move as rigid units.
+ * Role-aware exploded layout for inspection. Each part type is grouped into its
+ * own aligned region so the disassembly stays tidy from the default view;
+ * drawers stay assembled and move as rigid units.
  */
 export function expandAssembly(boxes: Box3D[], factor = 1): Box3D[] {
   const { center } = assemblyBounds(boxes);
 
-  // order each spreadable role group, and group drawers (by cell) into lanes
+  // even ordering for the deck row; group drawers (by cell) into rigid lanes
   const deck = groupOrder(boxes, (b) => b.role === "deck" || b.role === "shelf");
-  const back = groupOrder(boxes, (b) => b.role === "back");
-  const door = groupOrder(boxes, (b) => b.role === "door");
 
   const drawerY = new Map<string, number>();
   for (const b of boxes) {
@@ -422,7 +420,7 @@ export function expandAssembly(boxes: Box3D[], factor = 1): Box3D[] {
     drawerKeys.map((k, i) => [k, { i, n: drawerKeys.length }]),
   );
 
-  const ctx: ExpandCtx = { center, deck, back, door, drawer };
+  const ctx: ExpandCtx = { center, deck, drawer };
   return boxes.map((box) => {
     const [dx, dy, dz] = expandedOffset(box, ctx);
     return {
