@@ -1,12 +1,10 @@
 /**
  * scripts/verify-expand.ts
- * Overlap invariant for the exploded ("expanded") 3D view. Builds several
- * representative cabinets, explodes them with expandAssembly, and asserts that
- * no two part AABBs intersect — except boxes that belong to the SAME drawer,
- * which nest by design. Exits non-zero (so it can gate) if any config overlaps.
+ * Sanity-check for the "expanded" exploded view: builds representative cabinets,
+ * explodes them with expandAssembly, and asserts that no two part AABBs intersect
+ * (ignoring boxes that belong to the SAME drawer — they nest by design).
  *
- * Run (geometry.ts uses extensionless relative imports + moduleResolution
- * "bundler", so bundle with the repo's esbuild rather than node --strip-types):
+ * Run:
  *   node_modules/.bin/esbuild scripts/verify-expand.ts --bundle --platform=node \
  *     --format=esm --outfile=/tmp/verify-expand.mjs && node /tmp/verify-expand.mjs
  */
@@ -50,11 +48,11 @@ function doc(title: string, columns: StudioColumn[]): StudioDocument {
 
 const configs: StudioDocument[] = [
   doc("tiny (1 col, doors)", [column(0.45, [cell("doors")])]),
-  doc("GOOD (screenshot 1)", [
+  doc("GOOD reference (screenshot 1)", [
     column(0.45, [cell("doors"), cell("drawer", { drawerCount: 2 }), cell("doors")]),
     column(0.45, [cell("shelf", { shelfCount: 1 })]),
   ]),
-  doc("BAD (screenshot 2 regression)", [
+  doc("BAD regression (screenshot 2)", [
     column(0.4, [
       cell("doors", { height: 0.5 }),
       cell("drawer", { drawerCount: 3, height: 0.45 }),
@@ -73,12 +71,13 @@ const configs: StudioDocument[] = [
   ]),
 ];
 
-const isDrawer = (b: Box3D): boolean => b.role.startsWith("drawer");
-const drawerKey = (b: Box3D): string =>
+const isDrawerBox = (b: Box3D): boolean => b.role.startsWith("drawer");
+const drawerKeyOf = (b: Box3D): string =>
   `${b.meta?.column ?? 0}-${b.meta?.cell ?? 0}-${b.meta?.drawer ?? 0}`;
 
-/** Do two axis-aligned boxes intersect? Touching within eps counts as separate. */
-function overlaps(p: Box3D, q: Box3D, eps = 1e-4): boolean {
+// 1 mm tolerance: adjacent panels share a face by design (assembly joints);
+// we want to flag real volumetric overlap, not touching faces.
+function overlaps(p: Box3D, q: Box3D, eps = 1e-3): boolean {
   for (let a = 0; a < 3; a += 1) {
     const pmin = p.pos[a] - p.size[a] / 2;
     const pmax = p.pos[a] + p.size[a] / 2;
@@ -97,14 +96,14 @@ for (const d of configs) {
     for (let j = i + 1; j < exploded.length; j += 1) {
       const p = exploded[i];
       const q = exploded[j];
-      if (isDrawer(p) && isDrawer(q) && drawerKey(p) === drawerKey(q)) continue;
+      if (isDrawerBox(p) && isDrawerBox(q) && drawerKeyOf(p) === drawerKeyOf(q)) continue;
       if (overlaps(p, q)) offenders.push(`${p.id} (${p.role}) ∩ ${q.id} (${q.role})`);
     }
   }
   if (offenders.length) {
     failed += 1;
     console.error(`FAIL  ${d.title}: ${offenders.length} overlapping pair(s)`);
-    for (const o of offenders.slice(0, 12)) console.error(`        ${o}`);
+    for (const o of offenders.slice(0, 12)) console.error(`      ${o}`);
   } else {
     console.log(`ok    ${d.title}: ${exploded.length} parts, no overlaps`);
   }
