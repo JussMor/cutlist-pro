@@ -13,7 +13,7 @@ export function PanelMesh({
 }) {
   const color = colorMode === "uncolored" ? "#d7d2c8" : box.color;
   return (
-    <mesh position={box.pos} rotation={box.rotation}>
+    <mesh position={box.pos} rotation={box.rotation ?? [0, 0, 0]}>
       <boxGeometry args={box.size} />
       <meshStandardMaterial
         color={color}
