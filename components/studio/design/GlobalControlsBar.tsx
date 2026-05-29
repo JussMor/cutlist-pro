@@ -36,10 +36,9 @@ export function GlobalControlsBar() {
   const g = useStudioStore((s) => s.doc.globals);
   const set = useStudioStore((s) => s.setGlobals);
   return (
-    <div className="grid grid-cols-3 gap-3">
-      <Field label="Depth (m)" value={g.depth} step={0.05} onChange={(v) => set({ depth: v })} />
+    <div className="grid grid-cols-2 gap-3">
+      <Field label="Depth (cm)" value={g.depth} step={1} onChange={(v) => set({ depth: v })} />
       <Field label="Thickness (mm)" value={g.thickness} step={1} onChange={(v) => set({ thickness: v })} />
-      <Field label="Overhang (mm)" value={g.overhang} step={1} onChange={(v) => set({ overhang: v })} />
     </div>
   );
 }

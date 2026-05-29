@@ -88,8 +88,8 @@ export function SelectionInspector() {
         <div className="flex items-center gap-2">
           <Input
             type="number"
-            step={0.01}
-            min={0.05}
+            step={1}
+            min={5}
             defaultValue={widthValue ?? ""}
             placeholder="mixed"
             key={`w-${widthValue ?? "mixed"}`}
@@ -98,15 +98,15 @@ export function SelectionInspector() {
               if (!Number.isNaN(v)) setWidth(v);
             }}
           />
-          <span className="text-[#7d879a]">m</span>
+          <span className="text-[#7d879a]">cm</span>
         </div>
 
         <label className="text-[#7d879a]">Height</label>
         <div className="flex items-center gap-2">
           <Input
             type="number"
-            step={0.01}
-            min={0.05}
+            step={1}
+            min={5}
             defaultValue={heightValue ?? ""}
             placeholder="mixed"
             key={`h-${heightValue ?? "mixed"}`}
@@ -115,7 +115,7 @@ export function SelectionInspector() {
               if (!Number.isNaN(v)) patch({ height: v });
             }}
           />
-          <span className="text-[#7d879a]">m</span>
+          <span className="text-[#7d879a]">cm</span>
         </div>
 
         {typeValue === "drawer" && (

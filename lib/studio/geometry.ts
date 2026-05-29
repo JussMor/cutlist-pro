@@ -4,8 +4,10 @@
  * content). Single source of truth consumed by the r3f viewer (Phase 4) and the
  * despiece engine (Phase 5).
  *
- * Coordinate convention (meters): x = width (left->right), y = height (up),
- * z = depth (front face at z=0, back at z=D). `pos` is the box CENTER and
+ * The Studio document stores authoring dimensions in centimeters. This builder
+ * converts those values to meters for Three.js. Coordinate convention after
+ * conversion: x = width (left->right), y = height (up), z = depth
+ * (front face at z=0, back at z=D). `pos` is the box CENTER and
  * `size` is [w, h, d] — matching three.js boxGeometry which is centered.
  */
 import { ROLE_COLORS } from "./colors";
@@ -43,7 +45,8 @@ export interface Box3D {
 export type AssemblyState = "closed" | "open";
 
 const mm = (v: number) => v / 1000;
-const cellH = (c: StudioCell) => Math.max(0.02, c.height);
+const cm = (v: number) => v / 100;
+const cellH = (c: StudioCell) => Math.max(0.02, cm(c.height));
 
 /** Structural height of a column: a deck under/over every cell + the openings. */
 function columnHeight(col: StudioColumn, t: number): number {
@@ -215,14 +218,13 @@ export function buildAssembly(
   state: AssemblyState = "closed",
 ): Box3D[] {
   const t = mm(doc.globals.thickness);
-  const D = Math.max(0.05, doc.globals.depth);
-  const overhang = mm(doc.globals.overhang);
+  const D = Math.max(0.05, cm(doc.globals.depth));
   const boxes: Box3D[] = [];
 
   // cumulative x boundaries (N columns -> N+1 boundaries)
   const xs: number[] = [0];
   for (const col of doc.columns) {
-    xs.push(xs[xs.length - 1] + Math.max(0.05, col.width));
+    xs.push(xs[xs.length - 1] + Math.max(0.05, cm(col.width)));
   }
   const heights = doc.columns.map((c) => columnHeight(c, t));
 
@@ -254,12 +256,11 @@ export function buildAssembly(
       deckCenters.push(t / 2 + j * t + openings);
     }
     deckCenters.forEach((dc, j) => {
-      const isTop = j === k;
       boxes.push({
         id: `deck-${ci}-${j}`,
         role: "deck",
-        pos: [cx, dc, (isTop ? D + overhang : D) / 2],
-        size: [innerW, t, isTop ? D + overhang : D],
+        pos: [cx, dc, D / 2],
+        size: [innerW, t, D],
         color: ROLE_COLORS.deck,
         meta: { column: ci, deckIndex: j, deckCount: k },
       });
