@@ -1,0 +1,14 @@
+name = "staging-cutlist-pro-frontend"
+main = ".open-next/worker.js"
+compatibility_date = "2026-04-15"
+compatibility_flags = ["nodejs_compat"]
+
+# NOTE: lib/api/client.ts inlines NEXT_PUBLIC_API_URL at BUILD time. The staging
+# build must export this same value before `opennextjs-cloudflare build` runs
+# (the CI workflow does this). The var below documents the intended runtime URL.
+[vars]
+NEXT_PUBLIC_API_URL = "https://staging-cutlist-pro.jussmor.workers.dev"
+
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"

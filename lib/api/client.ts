@@ -7,6 +7,7 @@ import {
   Project,
   StockSheet,
 } from "@/lib/domain/types";
+import type { StudioDocument } from "@/lib/studio/document";
 
 function resolveApiBase(): string {
   if (process.env.NEXT_PUBLIC_API_URL) {
@@ -105,6 +106,56 @@ export async function saveAssembly(assembly: Assembly): Promise<void> {
 export async function deleteAssembly(id: string): Promise<void> {
   await parse(
     await fetch(`${API_BASE}/api/assemblies/${id}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+    }),
+  );
+}
+
+// ════════════════════════ STUDIO DOCUMENTS ════════════════════════
+
+export interface StudioDocRecord {
+  id: string;
+  title: string;
+  document: StudioDocument;
+  publishedAt?: number;
+}
+
+export interface StudioDocSummary {
+  id: string;
+  title: string;
+  publishedAt?: number;
+  updatedAt: number;
+}
+
+export async function fetchStudioDocs(): Promise<StudioDocSummary[]> {
+  const res = await fetch(`${API_BASE}/api/studio`, { cache: "no-store" });
+  const data = await parse<{ documents: StudioDocSummary[] }>(res);
+  return data.documents;
+}
+
+export async function loadStudioDoc(
+  id: string,
+): Promise<StudioDocRecord | null> {
+  const res = await fetch(`${API_BASE}/api/studio/${id}`, { cache: "no-store" });
+  if (res.status === 404) return null;
+  const data = await parse<{ document: StudioDocRecord }>(res);
+  return data.document;
+}
+
+export async function saveStudioDoc(record: StudioDocRecord): Promise<void> {
+  await parse(
+    await fetch(`${API_BASE}/api/studio`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(record),
+    }),
+  );
+}
+
+export async function deleteStudioDoc(id: string): Promise<void> {
+  await parse(
+    await fetch(`${API_BASE}/api/studio/${id}`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
     }),

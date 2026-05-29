@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { Boxes, ChevronDown, ChevronRight } from "lucide-react";
+import Link from "next/link";
 import { useWorkshopAssemblies } from "./hooks/useWorkshopAssemblies";
 import { useWorkshopModules } from "./hooks/useWorkshopModules";
 import { useWorkshopPanels } from "./hooks/useWorkshopPanels";
@@ -59,6 +60,14 @@ export function WorkshopSidebar({
       <div className="brand">
         Panelex<strong>Pro</strong>
       </div>
+
+      <Link
+        href="/studio"
+        className="mb-4 flex items-center gap-2 rounded-md border border-[#f4b450]/40 bg-[#f4b450]/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#f4b450] transition hover:bg-[#f4b450]/20"
+      >
+        <Boxes size={14} />
+        Editor 3D (beta)
+      </Link>
 
       <ProjectsSection
         savedProjects={pr.savedProjects}

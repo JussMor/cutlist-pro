@@ -1,0 +1,3 @@
+# Local secrets for `wrangler dev` (copy to .dev.vars, which is gitignored).
+# Keeps the Odoo API key out of wrangler.toml [vars].
+ODOO_API_KEY=""

@@ -26,6 +26,13 @@ import {
   getProjectWorkspace,
   upsertProject,
 } from "./projects-repo";
+import {
+  deleteStudioDoc,
+  getStudioDoc,
+  getStudioDocs,
+  upsertStudioDoc,
+  type StudioDocRecord,
+} from "./studio-repo";
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
@@ -53,6 +60,10 @@ export default {
             "GET  /api/assemblies/:id",
             "POST /api/assemblies",
             "DELETE /api/assemblies/:id",
+            "GET  /api/studio",
+            "GET  /api/studio/:id",
+            "POST /api/studio",
+            "DELETE /api/studio/:id",
             "POST /api/optimize",
           ],
         });
@@ -160,6 +171,36 @@ export default {
         const id = path.split("/").pop();
         if (!id) return json({ error: "Missing assembly id" }, 400);
         await deleteAssembly(env, id);
+        return json({ ok: true });
+      }
+
+      // ═══════════════════════════ STUDIO DOCUMENTS ═══════════════════════════
+
+      if (path === "/api/studio" && method === "GET") {
+        const documents = await getStudioDocs(env);
+        return json({ documents });
+      }
+
+      if (path === "/api/studio" && method === "POST") {
+        const payload = (await req.json()) as StudioDocRecord;
+        await upsertStudioDoc(env, payload);
+        return json({ ok: true }, 201);
+      }
+
+      // GET /api/studio/:id
+      if (path.startsWith("/api/studio/") && method === "GET") {
+        const id = path.split("/").pop();
+        if (!id) return json({ error: "Missing studio id" }, 400);
+        const document = await getStudioDoc(env, id);
+        if (!document) return json({ error: "Studio document not found" }, 404);
+        return json({ document });
+      }
+
+      // DELETE /api/studio/:id
+      if (path.startsWith("/api/studio/") && method === "DELETE") {
+        const id = path.split("/").pop();
+        if (!id) return json({ error: "Missing studio id" }, 400);
+        await deleteStudioDoc(env, id);
         return json({ ok: true });
       }
 
