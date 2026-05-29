@@ -315,39 +315,11 @@ export function assemblyBounds(boxes: Box3D[]): Bounds {
   };
 }
 
-interface LaneInfo {
-  i: number; // ordinal within the role group, bottom -> top
-  n: number; // group size
-}
-
-/** Order a role group bottom->top (then left->right) so it spreads evenly. */
-function groupOrder(
-  boxes: Box3D[],
-  pick: (b: Box3D) => boolean,
-): Map<string, LaneInfo> {
-  const arr = boxes
-    .filter(pick)
-    .sort((a, b) => a.pos[1] - b.pos[1] || a.pos[0] - b.pos[0]);
-  const m = new Map<string, LaneInfo>();
-  arr.forEach((b, i) => m.set(b.id, { i, n: arr.length }));
-  return m;
-}
-
-/** Even, centered position of lane `i` of `n` items at the given step. */
-function lane(info: LaneInfo, step: number): number {
-  return (info.i - (info.n - 1) / 2) * step;
-}
-
 const isDrawer = (b: Box3D): boolean => b.role.startsWith("drawer");
 const drawerKey = (b: Box3D): string =>
   `${b.meta?.column ?? 0}-${b.meta?.cell ?? 0}-${b.meta?.drawer ?? 0}`;
 
-type StackRole = "door" | "side" | "back" | "deck";
-
-const isDoor = (b: Box3D): boolean => b.role === "door";
 const isSide = (b: Box3D): boolean => b.role === "side";
-const isBack = (b: Box3D): boolean => b.role === "back";
-const isDeck = (b: Box3D): boolean => b.role === "deck" || b.role === "shelf";
 
 /** Largest extent along `axis` over the boxes matched by `pick` (0 if none). */
 function maxExtent(
@@ -362,128 +334,77 @@ function maxExtent(
 
 interface ExpandCtx {
   center: [number, number, number];
-  R: number; // characteristic assembly size; lane centers are multiples of it
-  frontPull: number; // how far doors/drawers sit forward of the depth plane
-  groups: Record<StackRole, Map<string, LaneInfo>>;
-  steps: Record<StackRole | "drawer", number>; // within-group spacing (extents)
-  rowFanX: number; // deck diagonal-fan step in X
-  drawer: Map<string, LaneInfo>;
+  D: number;  // cabinet depth; explosion distances are fractions of D
+  R: number;  // horizontal span; used for the small outward side nudge
   drawerAnchor: Map<string, [number, number, number]>;
 }
 
 /**
- * Per-role explosion offset (offset = target - current), sized PROPORTIONALLY
- * to the assembly so the layout stays tidy at any size. Role groups separate
- * along X into five lanes `R` apart (doors / drawers / sides / decks / backs)
- * and items stack along Y with a step from the parts' real extents, so nothing
- * in a lane overlaps. Everything snaps to depth `z=center.z` (doors/drawers
- * nudged forward) so depth never hides a part — readable from the fixed camera.
+ * "Pull-apart" explosion: covering parts (doors, drawers) slide toward the
+ * viewer so the interior becomes visible; structural panels (sides, backs)
+ * nudge slightly outward; decks/shelves are already spaced by cell heights so
+ * they only need a depth snap to face the camera — no Y re-ordering needed.
+ *
+ *  doors   → pulled toward viewer (−Z); keep natural X and Y
+ *  drawers → rigid unit pulled toward viewer (−Z)
+ *  sides   → small outward X nudge as bookends
+ *  backs   → small Z push away from viewer
+ *  decks   → depth snapped to C.z only; assembled Y spacing already separates them
  */
 function expandedOffset(box: Box3D, ctx: ExpandCtx): [number, number, number] {
-  const { center: C, R, frontPull, steps, groups, rowFanX } = ctx;
-  const [x, y, z] = box.pos;
+  const { center: C, D, R } = ctx;
+  const [x, , z] = box.pos;
 
   if (isDrawer(box)) {
-    // every box of one drawer shares an anchor + target -> identical offset ->
-    // the drawer translates as a rigid unit
+    // All five boxes of one drawer share the anchor → same offset → rigid unit.
     const k = drawerKey(box);
-    const a = ctx.drawerAnchor.get(k) ?? box.pos;
-    const info = ctx.drawer.get(k) ?? { i: 0, n: 1 };
-    const tx = C[0] - 1.3 * R;
-    const ty = C[1] + lane(info, steps.drawer);
-    const tz = C[2] - frontPull * 0.6;
-    return [tx - a[0], ty - a[1], tz - a[2]];
+    const a = ctx.drawerAnchor.get(k) ?? [x, box.pos[1], z] as [number, number, number];
+    return [0, 0, -D * 0.65 - a[2]];
   }
 
   switch (box.role) {
-    case "door": {
-      const info = groups.door.get(box.id) ?? { i: 0, n: 1 };
-      // keep 15% of the leaf's natural X so a cell's two leaves read as a pair
-      const tx = C[0] - 2.6 * R + (x - C[0]) * 0.15;
-      const ty = C[1] + lane(info, steps.door);
-      return [tx - x, ty - y, C[2] - frontPull - z];
-    }
+    case "door":
+      return [0, 0, -D * 0.85 - z]; // pull toward viewer; keep X and Y
     case "side": {
-      const info = groups.side.get(box.id) ?? { i: 0, n: 1 };
-      const end =
-        box.meta?.side === "left"
-          ? -0.35 * R
-          : box.meta?.side === "right"
-            ? 0.35 * R
-            : 0;
-      const tx = C[0] + end + lane(info, steps.side);
-      return [tx - x, 0, C[2] - z];
+      // Only the outer walls move; interior dividers stay in place
+      if (!box.meta?.side) return [0, 0, 0];
+      const sx = box.meta.side === "left" ? -1 : 1;
+      return [sx * R * 0.18, 0, 0];
     }
-    case "back": {
-      const info = groups.back.get(box.id) ?? { i: 0, n: 1 };
-      const tx = C[0] + 2.6 * R;
-      const ty = C[1] + lane(info, steps.back);
-      return [tx - x, ty - y, C[2] - z];
-    }
+    case "back":
+      return [0, 0, D * 0.6]; // push behind cabinet; keep X and Y
     case "deck":
-    case "shelf": {
-      const info = groups.deck.get(box.id) ?? { i: 0, n: 1 };
-      const tx = C[0] + 1.3 * R + (info.i - (info.n - 1) / 2) * rowFanX;
-      const ty = C[1] + lane(info, steps.deck);
-      return [tx - x, ty - y, C[2] - z];
-    }
+    case "shelf":
+      // Snap to mid-depth so panels face the camera; keep assembled X and Y —
+      // cell heights already provide clear vertical separation between decks.
+      return [0, 0, C[2] - z];
     default:
       return [0, 0, 0];
   }
 }
 
 /**
- * Role-aware exploded layout for inspection: each part type goes to its own
- * proportionally-spaced lane; drawers stay assembled and move as rigid units.
+ * Gentle exploded layout for inspection. Covering parts pull toward the viewer;
+ * structural parts stay near their assembled positions. Drawers translate as
+ * rigid units.
  */
 export function expandAssembly(boxes: Box3D[], factor = 1): Box3D[] {
   const { center, size } = assemblyBounds(boxes);
-  const R = Math.max(size[0], size[1], size[2], 0.3);
-  const margin = 0.02 * R;
-  const frontPull = 0.5 * R;
+  const D = Math.max(maxExtent(boxes, isSide, 2), size[2] * 0.8, 0.1);
+  const R = Math.max(size[0], size[1], 0.3);
 
-  const groups: Record<StackRole, Map<string, LaneInfo>> = {
-    door: groupOrder(boxes, isDoor),
-    side: groupOrder(boxes, isSide),
-    back: groupOrder(boxes, isBack),
-    deck: groupOrder(boxes, isDeck),
-  };
-
-  // Global drawer lanes + per-drawer anchor (front pos) -> rigid translation.
-  const drawer = new Map<string, LaneInfo>();
   const drawerAnchor = new Map<string, [number, number, number]>();
   const drawerMinY = new Map<string, number>();
-  let drawerHeight = 0;
   for (const b of boxes) {
     if (!isDrawer(b)) continue;
     const k = drawerKey(b);
     drawerMinY.set(k, Math.min(drawerMinY.get(k) ?? Infinity, b.pos[1]));
     if (b.role === "drawer-front") {
       drawerAnchor.set(k, [b.pos[0], b.pos[1], b.pos[2]]);
-      drawerHeight = Math.max(drawerHeight, b.size[1]);
     }
   }
-  const drawerKeys = [...drawerMinY.keys()].sort(
-    (a, b) => (drawerMinY.get(a) ?? 0) - (drawerMinY.get(b) ?? 0),
-  );
-  drawerKeys.forEach((k, i) => drawer.set(k, { i, n: drawerKeys.length }));
 
-  const steps: Record<StackRole | "drawer", number> = {
-    door: maxExtent(boxes, isDoor, 1) + margin,
-    side: maxExtent(boxes, isSide, 0) * 3 + margin, // thin in X -> readable gap
-    back: maxExtent(boxes, isBack, 1) + margin,
-    deck: maxExtent(boxes, isDeck, 1) + margin, // thin in Y -> tight stack
-    drawer: drawerHeight + margin,
-  };
-
-  // Deck diagonal fan, capped so the row never widens past the R lane gap.
-  const deckW = maxExtent(boxes, isDeck, 0);
-  const deckN = Math.max(1, groups.deck.size - 1);
-  const rowFanX = Math.min(0.05 * R, Math.max(0, (R - deckW) / deckN));
-
-  const ctx: ExpandCtx = {
-    center, R, frontPull, groups, steps, rowFanX, drawer, drawerAnchor,
-  };
+  const ctx: ExpandCtx = { center, D, R, drawerAnchor };
 
   return boxes.map((box) => {
     const [dx, dy, dz] = expandedOffset(box, ctx);
