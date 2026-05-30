@@ -1,6 +1,6 @@
 "use client";
 
-import { DEFAULT_CELL_HEIGHT, MAX_MODULE_HEIGHT_CM } from "@/lib/studio/document";
+import { MAX_MODULE_HEIGHT_CM } from "@/lib/studio/document";
 import type { StudioColumn } from "@/lib/studio/document";
 import { useStudioStore } from "@/store/studioStore";
 
@@ -8,10 +8,6 @@ import { AddAffordance } from "./AddAffordance";
 import { GridCell } from "./GridCell";
 
 const LETTERS = "ABCDEFGHIJ";
-
-// Pixel distance from the column floor to the module-boundary line.
-// Mirrors GridCell's scale: 40 px per DEFAULT_CELL_HEIGHT cm.
-const MODULE_LINE_PX = Math.round((MAX_MODULE_HEIGHT_CM / DEFAULT_CELL_HEIGHT) * 40);
 
 function moduleCount(col: StudioColumn): number {
   let count = 1;
@@ -36,11 +32,6 @@ export function FacadeGrid() {
   const clearSelection = useStudioStore((s) => s.clearSelection);
 
   const selSet = new Set(selection);
-
-  // True when at least one column overflows the first module height.
-  const hasModuleSplit = doc.columns.some(
-    (col) => col.cells.reduce((s, c) => s + c.height, 0) > MAX_MODULE_HEIGHT_CM,
-  );
 
   if (doc.columns.length === 0) {
     return (
@@ -73,34 +64,44 @@ export function FacadeGrid() {
               title="Agregar módulo encima"
               onClick={() => addCell(col.id)}
             />
-            {/*
-              The cell stack is position:relative so the module boundary line
-              can be anchored with position:absolute; bottom:MODULE_LINE_PX.
-              Because every stack shares the same bottom baseline (items-end on
-              the parent), that resolves to the *same absolute screen Y* for all
-              columns — even columns shorter than 240 cm, where the line appears
-              above the cells (overflow:visible, the default).
-            */}
-            <div className="relative flex flex-col-reverse">
-              {hasModuleSplit && (
-                <div
-                  className="pointer-events-none absolute inset-x-0 border-t-2 border-dashed border-[#f4b450]"
-                  style={{ bottom: `${MODULE_LINE_PX}px` }}
-                >
-                  <span className="absolute right-0 top-0 -translate-y-full rounded bg-[#0f1520] px-1 text-[9px] font-semibold text-[#f4b450]">
-                    M2
-                  </span>
-                </div>
-              )}
-              {col.cells.map((cell) => (
-                <GridCell
-                  key={cell.id}
-                  cell={cell}
-                  colorMode={colorMode}
-                  selected={selSet.has(cell.id)}
-                  onSelect={toggleSelect}
-                />
-              ))}
+            {/* cells[] is bottom -> top; flex-col-reverse stacks the first
+                element on the floor so the column grows up from a shared base.
+                The inline separator is inserted at the cumulative-height split
+                point so it always sits at the module boundary within the stack. */}
+            <div className="flex flex-col-reverse">
+              {(() => {
+                const elements: React.ReactNode[] = [];
+                let cumH = 0;
+                let mi = 0;
+                col.cells.forEach((cell, idx) => {
+                  if (idx > 0 && cumH + cell.height > MAX_MODULE_HEIGHT_CM) {
+                    mi++;
+                    cumH = 0;
+                    elements.push(
+                      <div
+                        key={`sep-m${mi}`}
+                        className="relative my-0.5 w-full border-t-2 border-dashed border-[#f4b450]"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span className="absolute -top-3 right-0 rounded bg-[#0f1520] px-1 text-[9px] font-semibold text-[#f4b450]">
+                          M{mi + 1}
+                        </span>
+                      </div>,
+                    );
+                  }
+                  cumH += cell.height;
+                  elements.push(
+                    <GridCell
+                      key={cell.id}
+                      cell={cell}
+                      colorMode={colorMode}
+                      selected={selSet.has(cell.id)}
+                      onSelect={toggleSelect}
+                    />,
+                  );
+                });
+                return elements;
+              })()}
             </div>
             <div className="flex flex-col items-center gap-1">
               <span className="flex size-6 items-center justify-center rounded-full bg-[#1a2230] text-[10px] font-semibold text-[#9aa4b6]">
@@ -109,11 +110,14 @@ export function FacadeGrid() {
               <span className="text-[11px] text-[#7d879a]">
                 {col.width.toFixed(0)} cm
               </span>
-              {mCount > 1 && (
-                <span className="rounded-full bg-[#f4b450] px-1.5 py-0.5 text-[9px] font-bold text-[#17120a]">
-                  {mCount}M
-                </span>
-              )}
+              {/* Always reserve badge space so every column's label area has
+                  the same height — keeping all cell stacks at the same bottom
+                  baseline so module separators align across columns. */}
+              <span
+                className={`rounded-full bg-[#f4b450] px-1.5 py-0.5 text-[9px] font-bold text-[#17120a] ${mCount <= 1 ? "invisible" : ""}`}
+              >
+                {mCount}M
+              </span>
             </div>
           </div>
         );
