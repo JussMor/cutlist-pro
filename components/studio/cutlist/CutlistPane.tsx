@@ -98,19 +98,6 @@ function manualToOptimizerPanel(panel: ManualPanel, stockSheetId: number | null)
   };
 }
 
-function BandingIndicator({ banding }: { banding: Panel["banding"] }) {
-  const on = "#f4b450";
-  const off = "#2a3040";
-  return (
-    <svg width="28" height="22" viewBox="0 0 28 22" fill="none" className="shrink-0">
-      <line x1="3" y1="3" x2="25" y2="3" stroke={banding.top ? on : off} strokeWidth={banding.top ? 3 : 1.5} strokeLinecap="round" />
-      <line x1="3" y1="19" x2="25" y2="19" stroke={banding.bottom ? on : off} strokeWidth={banding.bottom ? 3 : 1.5} strokeLinecap="round" />
-      <line x1="3" y1="3" x2="3" y2="19" stroke={banding.left ? on : off} strokeWidth={banding.left ? 3 : 1.5} strokeLinecap="round" />
-      <line x1="25" y1="3" x2="25" y2="19" stroke={banding.right ? on : off} strokeWidth={banding.right ? 3 : 1.5} strokeLinecap="round" />
-    </svg>
-  );
-}
-
 function BandingToggle({
   banding,
   onChange,
@@ -209,7 +196,7 @@ export function CutlistPane() {
   const pricing = usePricingStore((s) => s.pricing);
   const setPricingField = usePricingStore((s) => s.setPricingField);
   const { panels } = useMemo(() => computeDespiece(doc), [doc]);
-  const manualPanels = doc.manualPanels ?? [];
+  const manualPanels = useMemo(() => doc.manualPanels ?? [], [doc.manualPanels]);
   const [sheets, setSheets] = useState<StockSheet[]>([]);
   const [selectedSheetIds, setSelectedSheetIds] = useState<number[]>([]);
   const [primarySheetId, setPrimarySheetId] = useState<number | null>(null);
@@ -246,7 +233,7 @@ export function CutlistPane() {
       .map(applyDims);
   }, [globalDims, materialMode, primarySheetId, selectedSheetIds, sheets]);
 
-  const bandingOverrides = doc.bandingOverrides ?? {};
+  const bandingOverrides = useMemo(() => doc.bandingOverrides ?? {}, [doc.bandingOverrides]);
 
   const optimizerPanels = useMemo(() => {
     const auto = panels.map((panel) => {
