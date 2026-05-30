@@ -16,6 +16,7 @@ import {
   deleteCells as deleteCellsMut,
   deleteManualPanel as deleteManualPanelMut,
   setGlobals as setGlobalsMut,
+  toggleMergedDeck as toggleMergedDeckMut,
   updateBandingOverride as updateBandingOverrideMut,
   updateCells as updateCellsMut,
   updateColumnWidth,
@@ -61,6 +62,7 @@ interface StudioState {
   updateManualPanel: (id: string, patch: Partial<Omit<ManualPanel, "id">>) => void;
   deleteManualPanel: (id: string) => void;
   updateBandingOverride: (panelKey: string, banding: { top: boolean; bottom: boolean; left: boolean; right: boolean }) => void;
+  toggleMergedDeck: (colId: string, mi: number) => void;
 
   newDocument: () => void;
   load: (id: string) => Promise<void>;
@@ -131,6 +133,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     set((s) => ({ doc: deleteManualPanelMut(s.doc, id) })),
   updateBandingOverride: (panelKey, banding) =>
     set((s) => ({ doc: updateBandingOverrideMut(s.doc, panelKey, banding) })),
+  toggleMergedDeck: (colId, mi) =>
+    set((s) => ({ doc: toggleMergedDeckMut(s.doc, colId, mi) })),
 
   newDocument: () =>
     set({ doc: createStudioDocument(), selection: [], publishedAt: undefined }),

@@ -46,6 +46,7 @@ export interface Box3D {
     deckIndex?: number;
     deckCount?: number;
     module?: number; // stacked module index (0 = bottom)
+    merged?: boolean; // true when two junction decks were merged into one 2T panel
   };
 }
 
@@ -335,6 +336,7 @@ export function buildAssembly(
   const t = mm(doc.globals.thickness);
   const D = Math.max(0.05, cm(doc.globals.depth));
   const boxes: Box3D[] = [];
+  const mergedSet = new Set(doc.globals.mergedDecks ?? []);
 
   // cumulative x boundaries (N columns -> N+1 boundaries)
   const xs: number[] = [0];
@@ -391,7 +393,16 @@ export function buildAssembly(
         deckCenters.push(j < k ? startY + cumH : startY + totalH - t / 2);
       }
 
+      const topJunctionKey = `${col.id}/${mi}`;
+      const bottomJunctionKey = `${col.id}/${mi - 1}`;
+      const isTopMerged = mi < modules.length - 1 && mergedSet.has(topJunctionKey);
+      const isBottomMerged = mi > 0 && mergedSet.has(bottomJunctionKey);
+
       deckCenters.forEach((dc, j) => {
+        // Skip module-boundary decks that are part of a merged junction
+        if (j === k && isTopMerged) return;
+        if (j === 0 && isBottomMerged) return;
+
         boxes.push({
           id: `deck-${ci}-m${mi}-${j}`,
           role: "deck",
@@ -401,6 +412,22 @@ export function buildAssembly(
           meta: { column: ci, deckIndex: j, deckCount: k, module: mi },
         });
       });
+
+      // Single merged panel replacing the top deck of this module + bottom deck of next
+      if (isTopMerged) {
+        const nextMod = modules[mi + 1];
+        const topDeckY = deckCenters[k];         // center of top deck of module mi
+        const botDeckY = nextMod.startY + t / 2; // center of bottom deck of module mi+1
+        const mergedCenterY = (topDeckY + botDeckY) / 2;
+        boxes.push({
+          id: `deck-${ci}-m${mi}-merged`,
+          role: "deck",
+          pos: [cx, mergedCenterY, D / 2],
+          size: [innerW, 2 * t, D],
+          color: ROLE_COLORS.deck,
+          meta: { column: ci, deckIndex: k, deckCount: k, module: mi, merged: true },
+        });
+      }
 
       mod.cells.forEach((cell, localIdx) => {
         const globalIdx = mod.cellOffset + localIdx;

@@ -80,6 +80,7 @@ export interface StudioGlobals {
   thickness: number; // mm
   overhang: number; // mm
   hiddenBackPanels?: string[]; // "${columnId}/${cellId}" keys for hidden fondos
+  mergedDecks?: string[];      // "${columnId}/${moduleIndex}" - junction between module mi and mi+1 is merged into one 2T panel
 }
 
 export interface ManualPanel {
@@ -268,4 +269,17 @@ export function updateBandingOverride(
 export function deleteManualPanel(doc: StudioDocument, id: string): StudioDocument {
   const manualPanels = (doc.manualPanels ?? []).filter((p) => p.id !== id);
   return touch({ ...doc, manualPanels });
+}
+
+export function toggleMergedDeck(
+  doc: StudioDocument,
+  colId: string,
+  mi: number,
+): StudioDocument {
+  const key = `${colId}/${mi}`;
+  const current = doc.globals.mergedDecks ?? [];
+  const next = current.includes(key)
+    ? current.filter((k) => k !== key)
+    : [...current, key];
+  return touch({ ...doc, globals: { ...doc.globals, mergedDecks: next } });
 }
