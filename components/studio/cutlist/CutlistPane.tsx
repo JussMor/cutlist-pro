@@ -205,6 +205,7 @@ export function CutlistPane() {
   const deleteManualPanel = useStudioStore((s) => s.deleteManualPanel);
   const save = useStudioStore((s) => s.save);
   const pricing = usePricingStore((s) => s.pricing);
+  const setPricingField = usePricingStore((s) => s.setPricingField);
   const { panels } = useMemo(() => computeDespiece(doc), [doc]);
   const manualPanels = doc.manualPanels ?? [];
   const [sheets, setSheets] = useState<StockSheet[]>([]);
@@ -719,6 +720,17 @@ export function CutlistPane() {
                   </option>
                 ))}
               </select>
+            </label>
+            <label className="grid gap-1 text-xs text-[#7d879a]">
+              Kerf sierra (cm)
+              <input
+                type="number"
+                className="table-input w-24"
+                step="0.01"
+                min="0"
+                value={pricing.kerfCm}
+                onChange={(e) => setPricingField("kerfCm", Number(e.target.value))}
+              />
             </label>
             <button
               type="button"
