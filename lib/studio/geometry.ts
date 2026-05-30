@@ -16,7 +16,8 @@
  * construction where tall carcasses are built as two bolted units.
  */
 import { ROLE_COLORS } from "./colors";
-import type { StudioCell, StudioColumn, StudioDocument } from "./document";
+import { cellFront, cellInterior } from "./document";
+import type { CellFront, StudioCell, StudioColumn, StudioDocument } from "./document";
 
 export type BoxRole =
   | "deck"
@@ -41,7 +42,7 @@ export interface Box3D {
     column?: number;
     cell?: number;
     drawer?: number;
-    side?: "left" | "right";
+    side?: "left" | "right" | "up";
     deckIndex?: number;
     deckCount?: number;
     module?: number; // stacked module index (0 = bottom)
@@ -113,7 +114,10 @@ function addCellContent(boxes: Box3D[], cell: StudioCell, ctx: CellCtx): void {
   const cyc = (bottom + top) / 2;
   const gap = 0.003;
 
-  switch (cell.type) {
+  const interior = cellInterior(cell);
+  const front = cellFront(cell);
+
+  switch (interior) {
     case "shelf": {
       const n = Math.max(0, cell.shelfCount ?? 1);
       for (let s = 1; s <= n; s += 1) {
@@ -195,24 +199,95 @@ function addCellContent(boxes: Box3D[], cell: StudioCell, ctx: CellCtx): void {
       }
       break;
     }
-    case "doors": {
+    default:
+      break; // "empty" -> open compartment, no interior parts
+  }
+
+  // Front doors are independent of the interior: an empty box, a shelf unit or
+  // (rarely) a drawer bank can all carry a door in front.
+  addFront(boxes, front, { cx, innerW, cyc, ch, top, t, ci, idx, gap, state });
+}
+
+interface FrontCtx {
+  cx: number;
+  innerW: number;
+  cyc: number;
+  ch: number;
+  top: number;
+  t: number;
+  ci: number;
+  idx: number;
+  gap: number;
+  state: AssemblyState;
+}
+
+function addFront(boxes: Box3D[], front: CellFront, ctx: FrontCtx): void {
+  const { cx, innerW, cyc, ch, top, t, ci, idx, gap, state } = ctx;
+  switch (front) {
+    case "double": {
       const leafW = innerW / 2 - gap;
       boxes.push(doorBox(`door-${ci}-${idx}-l`, cx - innerW / 2, leafW, cyc, ch - gap, t, "left", state));
       boxes.push(doorBox(`door-${ci}-${idx}-r`, cx + innerW / 2, leafW, cyc, ch - gap, t, "right", state));
       break;
     }
-    case "left-door": {
+    case "left":
       boxes.push(doorBox(`door-${ci}-${idx}`, cx - innerW / 2, innerW - gap, cyc, ch - gap, t, "left", state));
       break;
-    }
-    case "right-door": {
+    case "right":
       boxes.push(doorBox(`door-${ci}-${idx}`, cx + innerW / 2, innerW - gap, cyc, ch - gap, t, "right", state));
       break;
-    }
+    case "flip-up":
+      boxes.push(flipDoorBox(`door-${ci}-${idx}`, cx, innerW - gap, cyc, ch - gap, t, top, state));
+      break;
     default:
-      break; // "multiple" -> open compartment
+      break; // "none" -> open front
   }
 }
+
+/**
+ * Lift-up door: hinged along the TOP edge, swinging the bottom outward/up.
+ * Rotates about the X axis (vs. the Y-axis swing of side doors).
+ */
+function flipDoorBox(
+  id: string,
+  cx: number,
+  width: number,
+  cy: number,
+  height: number,
+  t: number,
+  topY: number,
+  state: AssemblyState,
+): Box3D {
+  if (state === "closed") {
+    return {
+      id,
+      role: "door",
+      pos: [cx, cy, -t / 2],
+      size: [width, height, t],
+      color: ROLE_COLORS.door,
+      rotation: [0, 0, 0],
+      meta: { side: "up" },
+    };
+  }
+
+  const angle = Math.PI * 0.46;
+  const hingeY = topY - gapless(t); // hinge sits at the top edge of the opening
+  return {
+    id,
+    role: "door",
+    pos: [
+      cx,
+      hingeY - Math.cos(angle) * (height / 2),
+      -t / 2 - Math.sin(angle) * (height / 2),
+    ],
+    size: [width, height, t],
+    color: ROLE_COLORS.door,
+    rotation: [-angle, 0, 0],
+    meta: { side: "up" },
+  };
+}
+
+const gapless = (t: number) => t / 2;
 
 function doorBox(
   id: string,

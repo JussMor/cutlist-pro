@@ -1,6 +1,13 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
+import {
+  Columns2,
+  PanelLeft,
+  PanelRight,
+  PanelTop,
+  Square,
+  Trash2,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,16 +18,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { CellType } from "@/lib/studio/document";
+import {
+  cellFront,
+  cellInterior,
+  type CellFront,
+  type CellInterior,
+} from "@/lib/studio/document";
+import { cn } from "@/lib/utils";
 import { useStudioStore } from "@/store/studioStore";
 
-const TYPES: CellType[] = [
-  "multiple",
-  "shelf",
-  "drawer",
-  "doors",
-  "left-door",
-  "right-door",
+const INTERIORS: { value: CellInterior; label: string }[] = [
+  { value: "empty", label: "empty" },
+  { value: "shelf", label: "shelf" },
+  { value: "drawer", label: "drawer" },
+];
+
+// 5-icon front-door picker: none · double · left · right · flip-up.
+const FRONTS: { value: CellFront; label: string; Icon: typeof Square }[] = [
+  { value: "none", label: "Ninguna", Icon: Square },
+  { value: "double", label: "Doble", Icon: Columns2 },
+  { value: "left", label: "Izquierda", Icon: PanelLeft },
+  { value: "right", label: "Derecha", Icon: PanelRight },
+  { value: "flip-up", label: "Abatible", Icon: PanelTop },
 ];
 
 function uniq<T>(arr: T[]): T[] {
@@ -43,11 +62,13 @@ export function SelectionInspector() {
     c.cells.some((cell) => selection.includes(cell.id)),
   );
 
-  const types = uniq(cells.map((c) => c.type));
+  const interiors = uniq(cells.map((c) => cellInterior(c)));
+  const fronts = uniq(cells.map((c) => cellFront(c)));
   const heights = uniq(cells.map((c) => c.height));
   const widths = uniq(cols.map((c) => c.width));
 
-  const typeValue = types.length === 1 ? types[0] : undefined;
+  const interiorValue = interiors.length === 1 ? interiors[0] : undefined;
+  const frontValue = fronts.length === 1 ? fronts[0] : undefined;
   const heightValue = heights.length === 1 ? heights[0] : undefined;
   const widthValue = widths.length === 1 ? widths[0] : undefined;
   const drawerCounts = uniq(cells.map((c) => c.drawerCount ?? 2));
@@ -61,28 +82,50 @@ export function SelectionInspector() {
         {selection.length} selected
       </div>
       <div className="grid grid-cols-[64px_1fr] items-center gap-x-3 gap-y-2 text-xs">
-        <label className="text-[#7d879a]">Type</label>
+        <label className="text-[#7d879a]">Inside</label>
         <Select
-          value={typeValue}
+          value={interiorValue}
           onValueChange={(v) =>
             patch({
-              type: v as CellType,
+              interior: v as CellInterior,
               ...(v === "drawer" ? { drawerCount: 2 } : {}),
               ...(v === "shelf" ? { shelfCount: 1 } : {}),
             })
           }
         >
           <SelectTrigger className="border-[#f4b450]">
-            <SelectValue placeholder="multiple" />
+            <SelectValue placeholder="mixed" />
           </SelectTrigger>
           <SelectContent>
-            {TYPES.map((t) => (
-              <SelectItem key={t} value={t}>
-                {t}
+            {INTERIORS.map((t) => (
+              <SelectItem key={t.value} value={t.value}>
+                {t.label}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
+
+        <label className="text-[#7d879a]">Door</label>
+        <div className="flex gap-1">
+          {FRONTS.map(({ value, label, Icon }) => (
+            <button
+              key={value}
+              type="button"
+              title={label}
+              aria-label={label}
+              aria-pressed={frontValue === value}
+              onClick={() => patch({ front: value })}
+              className={cn(
+                "flex flex-1 items-center justify-center rounded-md border py-1.5 transition-colors",
+                frontValue === value
+                  ? "border-[#f4b450] bg-[#f4b450]/15 text-[#f4b450]"
+                  : "border-[#1f2735] text-[#7d879a] hover:border-[#3a4660] hover:text-[#d7dde9]",
+              )}
+            >
+              <Icon className="size-4" />
+            </button>
+          ))}
+        </div>
 
         <label className="text-[#7d879a]">Width</label>
         <div className="flex items-center gap-2">
@@ -118,7 +161,7 @@ export function SelectionInspector() {
           <span className="text-[#7d879a]">cm</span>
         </div>
 
-        {typeValue === "drawer" && (
+        {interiorValue === "drawer" && (
           <>
             <label className="text-[#7d879a]">Drawers</label>
             <Input
@@ -136,7 +179,7 @@ export function SelectionInspector() {
           </>
         )}
 
-        {typeValue === "shelf" && (
+        {interiorValue === "shelf" && (
           <>
             <label className="text-[#7d879a]">Shelves</label>
             <Input
