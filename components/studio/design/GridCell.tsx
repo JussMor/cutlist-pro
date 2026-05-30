@@ -32,11 +32,11 @@ export function GridCell({
   const drawerCount = Math.max(1, cell.drawerCount ?? 1);
   const shelfCount = Math.max(1, cell.shelfCount ?? 1);
 
-  // "multiple" grows proportionally to its height relative to the default cell
-  // height (30 cm = 80 px). All other types stay at the fixed 80 px baseline.
+  // "multiple" grows proportionally but is capped at 200 px (≈ 2.5× the 80 px
+  // base) so very tall modules don't dominate the facade grid.
   const cellHeightPx =
     cell.type === "multiple"
-      ? Math.max(80, Math.round((cell.height / DEFAULT_CELL_HEIGHT) * 80))
+      ? Math.min(200, Math.max(80, Math.round((cell.height / DEFAULT_CELL_HEIGHT) * 80)))
       : 80;
 
   return (
