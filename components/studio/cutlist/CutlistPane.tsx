@@ -325,6 +325,50 @@ export function CutlistPane() {
     );
   }
 
+  function renderPanelCard(panel: StudioPanel) {
+    const id = panelId(panel);
+    const optPanel = optimizerPanels.find((p) => p.id === id);
+    return (
+      <div key={panel.key} className="flex items-start gap-3 border-t border-[#1c2330] py-3">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#e8eaee] text-[10px] font-bold text-[#0b0e14]">
+          {panel.badge}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-medium text-[#d7dde9]">{roleLabels[panel.role]}</span>
+            <span className="shrink-0 text-xs font-semibold text-[#d7dde9]">×{panel.qty}</span>
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            {optPanel && (
+              <span className="text-xs text-[#9aa4b6]">
+                {optPanel.L.toFixed(1)} × {optPanel.W.toFixed(1)} × {panel.thickness.toFixed(1)} cm
+              </span>
+            )}
+            {optPanel && <BandingIndicator banding={optPanel.banding} />}
+          </div>
+          <div className="mt-1 text-xs text-[#7d879a]">
+            {materialMode === "single" ? (
+              <span className="truncate">{selectedSheetName(primarySheetId)}</span>
+            ) : (
+              <select
+                className="table-input w-full"
+                value={panelSheets[id] ?? ""}
+                onChange={(e) =>
+                  changePanelSheet(id, e.target.value ? Number(e.target.value) : null)
+                }
+              >
+                <option value="">Auto</option>
+                {assignableSheets.map((sheet) => (
+                  <option key={sheet.odooId} value={sheet.odooId}>{sheet.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   async function runOptimize() {
     try {
       setOptimizing(true);
@@ -348,7 +392,7 @@ export function CutlistPane() {
   }
 
   return (
-    <div className="grid h-full grid-cols-1 gap-6 overflow-auto p-6 xl:grid-cols-[minmax(560px,1fr)_minmax(420px,0.85fr)]">
+    <div className="grid h-full grid-cols-1 gap-4 overflow-auto p-3 sm:gap-6 sm:p-6 xl:grid-cols-[minmax(560px,1fr)_minmax(420px,0.85fr)]">
       <div className="space-y-6">
         <section className="rounded-lg border border-[#1c2330] bg-[#0b1019] p-4">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -428,7 +472,59 @@ export function CutlistPane() {
             </div>
           )}
 
-          <div className="overflow-x-auto">
+          {/* Mobile card list (< md) */}
+          <div className="block md:hidden text-sm">
+            {structuralPanels.map(renderPanelCard)}
+            {drawerCollections.map((collection) => {
+              const isOpen = openDrawerCollections[collection.index] ?? true;
+              const sheetValue = drawerCollectionSheetValue(collection.panelIds);
+              return (
+                <div key={`m-drawer-${collection.index}`} className="border-t border-[#1c2330]">
+                  <div className="flex items-center gap-3 bg-[#111824] py-3">
+                    <button
+                      type="button"
+                      className="flex flex-1 items-center gap-3 text-left"
+                      onClick={() =>
+                        setOpenDrawerCollections((c) => ({ ...c, [collection.index]: !isOpen }))
+                      }
+                    >
+                      <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#f4b450] text-xs font-bold text-[#17120a]">
+                        {isOpen ? "−" : "+"}
+                      </span>
+                      <span>
+                        <span className="block font-semibold text-[#d7dde9]">Cajon {collection.index}</span>
+                        <span className="text-xs text-[#7d879a]">
+                          {collection.panels.length} piezas · {collection.drawerCount} cajon{collection.drawerCount === 1 ? "" : "es"}
+                        </span>
+                      </span>
+                    </button>
+                    {materialMode === "mixed" && (
+                      <select
+                        className="table-input max-w-36"
+                        value={sheetValue ?? ""}
+                        onChange={(e) =>
+                          changeDrawerCollectionSheet(
+                            collection.panelIds,
+                            e.target.value === "mixed" || e.target.value === "" ? null : Number(e.target.value),
+                          )
+                        }
+                      >
+                        <option value="">Auto</option>
+                        {sheetValue === "mixed" && <option value="mixed">Mixto</option>}
+                        {assignableSheets.map((s) => (
+                          <option key={s.odooId} value={s.odooId}>{s.name}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                  {isOpen && collection.panels.map(renderPanelCard)}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop table (≥ md) */}
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[820px] border-collapse text-xs">
               <thead>
                 <tr className="text-left text-[#7d879a]">
@@ -444,16 +540,11 @@ export function CutlistPane() {
               <tbody>
                 {structuralPanels.map(renderPanelRow)}
                 {drawerCollections.map((collection) => {
-                  const isOpen =
-                    openDrawerCollections[collection.index] ?? true;
-                  const sheetValue = drawerCollectionSheetValue(
-                    collection.panelIds,
-                  );
+                  const isOpen = openDrawerCollections[collection.index] ?? true;
+                  const sheetValue = drawerCollectionSheetValue(collection.panelIds);
                   return (
                     <Fragment key={`drawer-group-${collection.index}`}>
-                      <tr
-                        className="border-t border-[#1c2330] bg-[#111824]"
-                      >
+                      <tr className="border-t border-[#1c2330] bg-[#111824]">
                         <td colSpan={6} className="px-3 py-3">
                           <button
                             type="button"
@@ -466,7 +557,7 @@ export function CutlistPane() {
                             }
                           >
                             <span className="flex size-7 items-center justify-center rounded-full bg-[#f4b450] text-xs font-bold text-[#17120a]">
-                              {isOpen ? "-" : "+"}
+                              {isOpen ? "−" : "+"}
                             </span>
                             <span>
                               <span className="block font-semibold text-[#d7dde9]">
@@ -492,22 +583,16 @@ export function CutlistPane() {
                               onChange={(event) =>
                                 changeDrawerCollectionSheet(
                                   collection.panelIds,
-                                  event.target.value === "mixed" ||
-                                    event.target.value === ""
+                                  event.target.value === "mixed" || event.target.value === ""
                                     ? null
                                     : Number(event.target.value),
                                 )
                               }
                             >
                               <option value="">Auto</option>
-                              {sheetValue === "mixed" && (
-                                <option value="mixed">Mixto</option>
-                              )}
+                              {sheetValue === "mixed" && <option value="mixed">Mixto</option>}
                               {assignableSheets.map((sheet) => (
-                                <option
-                                  key={sheet.odooId}
-                                  value={sheet.odooId}
-                                >
+                                <option key={sheet.odooId} value={sheet.odooId}>
                                   {sheet.name}
                                 </option>
                               ))}
