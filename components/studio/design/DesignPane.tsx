@@ -3,7 +3,6 @@
 import { Box, ChevronLeft } from "lucide-react";
 import { useState } from "react";
 
-import { cn } from "@/lib/utils";
 import { useStudioStore } from "@/store/studioStore";
 
 import { Viewer3D } from "../viewer/Viewer3D";
