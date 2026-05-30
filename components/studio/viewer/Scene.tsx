@@ -78,11 +78,15 @@ export default function Scene({
   doc,
   mode,
   colorMode,
+  onToggleBackPanel,
 }: {
   doc: StudioDocument;
   mode: RenderMode;
   colorMode: ColorMode;
+  onToggleBackPanel?: () => void;
 }) {
+  const includeBackPanel = doc.globals.includeBackPanel ?? true;
+
   const boxes = useMemo(() => {
     // Expanded shows the cabinet disassembled with the doors flat (closed), so
     // it builds closed geometry and then explodes it; only "open" swings doors.
@@ -109,7 +113,17 @@ export default function Scene({
       <directionalLight position={[-6, 4, -5]} intensity={0.4} />
       <group>
         {boxes.map((b) => (
-          <PanelMesh key={b.id} box={b} colorMode={colorMode} />
+          <PanelMesh
+            key={b.id}
+            box={b}
+            colorMode={colorMode}
+            onLongPress={
+              b.role === "back" && mode === "expanded"
+                ? onToggleBackPanel
+                : undefined
+            }
+            isGhosted={b.role === "back" && !includeBackPanel}
+          />
         ))}
       </group>
       <DottedFloor cx={cx} y={bounds.min[1] - 0.002} cz={cz} colorMode={colorMode} />

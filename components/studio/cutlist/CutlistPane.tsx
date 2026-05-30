@@ -161,7 +161,14 @@ export function CutlistPane() {
   const deleteManualPanel = useStudioStore((s) => s.deleteManualPanel);
   const save = useStudioStore((s) => s.save);
   const pricing = usePricingStore((s) => s.pricing);
-  const { panels } = useMemo(() => computeDespiece(doc), [doc]);
+  const { panels: allPanels } = useMemo(() => computeDespiece(doc), [doc]);
+  const panels = useMemo(
+    () =>
+      (doc.globals.includeBackPanel ?? true)
+        ? allPanels
+        : allPanels.filter((p) => p.role !== "back-panel"),
+    [allPanels, doc.globals.includeBackPanel],
+  );
   const manualPanels = doc.manualPanels ?? [];
   const [sheets, setSheets] = useState<StockSheet[]>([]);
   const [selectedSheetIds, setSelectedSheetIds] = useState<number[]>([]);
