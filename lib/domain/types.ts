@@ -154,6 +154,7 @@ export interface CostBreakdown {
   material: number;
   cutting: number;
   banding: number;
+  margin: number;
   total: number;
 }
 
@@ -186,6 +187,7 @@ export interface PricingConfig {
   hingeCupDiameterMm: 35 | 26;
   drawerSystem: "side-mount" | "undermount";
   drawerSideClearanceCm: number;
+  marginPercent: number;
 }
 
 export type MaterialMode = "single" | "mixed";

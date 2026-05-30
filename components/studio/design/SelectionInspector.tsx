@@ -92,7 +92,7 @@ export function SelectionInspector() {
             min={5}
             defaultValue={widthValue ?? ""}
             placeholder="mixed"
-            key={`w-${widthValue ?? "mixed"}`}
+            key={`w-${selection.join(",")}`}
             onChange={(e) => {
               const v = parseFloat(e.target.value);
               if (!Number.isNaN(v)) setWidth(v);
@@ -109,7 +109,7 @@ export function SelectionInspector() {
             min={5}
             defaultValue={heightValue ?? ""}
             placeholder="mixed"
-            key={`h-${heightValue ?? "mixed"}`}
+            key={`h-${selection.join(",")}`}
             onChange={(e) => {
               const v = parseFloat(e.target.value);
               if (!Number.isNaN(v)) patch({ height: v });
@@ -127,7 +127,7 @@ export function SelectionInspector() {
               min={1}
               defaultValue={drawerCountValue ?? ""}
               placeholder="mixed"
-              key={`d-${drawerCountValue ?? "mixed"}`}
+              key={`d-${selection.join(",")}`}
               onChange={(e) => {
                 const v = parseInt(e.target.value, 10);
                 if (!Number.isNaN(v)) patch({ drawerCount: Math.max(1, v) });
@@ -145,7 +145,7 @@ export function SelectionInspector() {
               min={0}
               defaultValue={shelfCountValue ?? ""}
               placeholder="mixed"
-              key={`s-${shelfCountValue ?? "mixed"}`}
+              key={`s-${selection.join(",")}`}
               onChange={(e) => {
                 const v = parseInt(e.target.value, 10);
                 if (!Number.isNaN(v)) patch({ shelfCount: Math.max(0, v) });

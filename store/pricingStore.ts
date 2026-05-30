@@ -25,6 +25,7 @@ export const usePricingStore = create<PricingState>((set) => ({
     hingeCupDiameterMm: 35,
     drawerSystem: "side-mount",
     drawerSideClearanceCm: 1.25,
+    marginPercent: 0.15,
   },
   setPricingField: (key, value) =>
     set((state) => ({ pricing: { ...state.pricing, [key]: value } })),

@@ -48,6 +48,23 @@ function panelId(panel: StudioPanel) {
   return `studio-${panel.badge}-${panel.key.replace(/[^a-z0-9]+/gi, "-")}`;
 }
 
+const ROLE_BANDING: Record<StudioPanel["role"], Panel["banding"]> = {
+  // front vertical edge of side panel = left edge (length L = column height)
+  "vertical-side": { top: false, bottom: false, left: true, right: false },
+  // front edge of shelf/deck = left edge (length L = inner width, after L/W fix)
+  "horizontal-deck": { top: false, bottom: false, left: true, right: false },
+  // all 4 edges visible on doors and drawer fronts
+  door: { top: true, bottom: true, left: true, right: true },
+  "drawer-front": { top: true, bottom: true, left: true, right: true },
+  // top edge of drawer side is visible when looking into the drawer
+  "drawer-side": { top: true, bottom: false, left: false, right: false },
+  // hidden parts — no banding
+  "back-panel": { top: false, bottom: false, left: false, right: false },
+  "drawer-back": { top: false, bottom: false, left: false, right: false },
+  "drawer-bottom": { top: false, bottom: false, left: false, right: false },
+  "drawer-inner-front": { top: false, bottom: false, left: false, right: false },
+};
+
 function toOptimizerPanel(
   panel: StudioPanel,
   stockSheetId: number | null,
@@ -59,7 +76,7 @@ function toOptimizerPanel(
     qty: panel.qty,
     L: panel.height,
     W: panel.width,
-    banding: { top: false, bottom: false, left: false, right: false },
+    banding: ROLE_BANDING[panel.role],
     stockSheetId,
     grainDirection: "none",
   };
