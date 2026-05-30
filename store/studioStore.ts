@@ -20,6 +20,7 @@ import {
   updateCells as updateCellsMut,
   updateColumnWidth,
   updateManualPanel as updateManualPanelMut,
+  MAX_MODULE_HEIGHT_CM,
   type CellPatch,
   type ManualPanel,
   type StudioColumn,
@@ -104,8 +105,13 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   addCellToColumn: (columnId, atIndex) =>
     set((s) => ({ doc: addCellMut(s.doc, columnId, atIndex) })),
 
-  patchSelection: (patch) =>
-    set((s) => ({ doc: updateCellsMut(s.doc, s.selection, patch) })),
+  patchSelection: (patch) => {
+    const clamped =
+      patch.height !== undefined
+        ? { ...patch, height: Math.min(patch.height, MAX_MODULE_HEIGHT_CM) }
+        : patch;
+    set((s) => ({ doc: updateCellsMut(s.doc, s.selection, clamped) }));
+  },
   setSelectionWidth: (width) =>
     set((s) => ({
       doc: updateColumnWidth(s.doc, selectedColumnIds(s.doc, s.selection), width),

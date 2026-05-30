@@ -9,6 +9,11 @@
  * conversion: x = width (left->right), y = height (up), z = depth
  * (front face at z=0, back at z=D). `pos` is the box CENTER and
  * `size` is [w, h, d] — matching three.js boxGeometry which is centered.
+ *
+ * Stacked modules: when a column's total height exceeds MAX_MODULE_HEIGHT_M,
+ * the column is split into independent stacked modules. Each module gets its
+ * own lateral side panels and top/bottom deck panels — matching real furniture
+ * construction where tall carcasses are built as two bolted units.
  */
 import { ROLE_COLORS } from "./colors";
 import type { StudioCell, StudioColumn, StudioDocument } from "./document";
@@ -39,6 +44,7 @@ export interface Box3D {
     side?: "left" | "right";
     deckIndex?: number;
     deckCount?: number;
+    module?: number; // stacked module index (0 = bottom)
   };
 }
 
@@ -48,10 +54,44 @@ const mm = (v: number) => v / 1000;
 const cm = (v: number) => v / 100;
 const cellH = (c: StudioCell) => Math.max(0.02, cm(c.height));
 
-/** Structural height of a column: sum of cell heights (each cell's input is its
- *  total exterior section height, with top/bottom boards fitting inside). */
-function columnHeight(col: StudioColumn): number {
-  return col.cells.reduce((acc, c) => acc + cellH(c), 0);
+// Each stacked module must be no taller than this (mirrors MAX_MODULE_HEIGHT_CM)
+const MAX_MODULE_HEIGHT_M = 2.40;
+
+interface ModuleSegment {
+  cells: StudioCell[];
+  startY: number;     // Y of the module's floor (meters)
+  height: number;     // total height of this module (meters)
+  cellOffset: number; // global index of the first cell in col.cells
+}
+
+/**
+ * Split a column's cells into stacked module segments, each ≤ MAX_MODULE_HEIGHT_M.
+ * Greedy: pack cells until the next one would overflow, then start a new segment.
+ */
+function splitColumnIntoModules(col: StudioColumn): ModuleSegment[] {
+  const segments: ModuleSegment[] = [];
+  let currentCells: StudioCell[] = [];
+  let currentH = 0;
+  let startY = 0;
+  let segCellOffset = 0;
+
+  for (let i = 0; i < col.cells.length; i++) {
+    const cell = col.cells[i];
+    const ch = cellH(cell);
+    if (currentH > 0 && currentH + ch > MAX_MODULE_HEIGHT_M) {
+      segments.push({ cells: [...currentCells], startY, height: currentH, cellOffset: segCellOffset });
+      startY += currentH;
+      currentCells = [];
+      currentH = 0;
+      segCellOffset = i;
+    }
+    currentCells.push(cell);
+    currentH += ch;
+  }
+  if (currentCells.length > 0) {
+    segments.push({ cells: currentCells, startY, height: currentH, cellOffset: segCellOffset });
+  }
+  return segments;
 }
 
 interface CellCtx {
@@ -226,64 +266,89 @@ export function buildAssembly(
   for (const col of doc.columns) {
     xs.push(xs[xs.length - 1] + Math.max(0.05, cm(col.width)));
   }
-  const heights = doc.columns.map((c) => columnHeight(c));
 
-  // vertical sides on each boundary; height = max of the adjacent columns
-  for (let b = 0; b < xs.length; b += 1) {
-    const leftH = b > 0 ? heights[b - 1] : 0;
-    const rightH = b < doc.columns.length ? heights[b] : 0;
-    const h = Math.max(leftH, rightH);
-    if (h <= 0) continue;
-    boxes.push({
-      id: `side-${b}`,
-      role: "side",
-      pos: [xs[b], h / 2, D / 2],
-      size: [t, h, D],
-      color: ROLE_COLORS.side,
-      meta: { side: b === 0 ? "left" : b === xs.length - 1 ? "right" : undefined },
-    });
+  // Split every column into module segments
+  const columnModules = doc.columns.map(splitColumnIntoModules);
+  const maxModules = columnModules.length > 0
+    ? Math.max(...columnModules.map((m) => m.length))
+    : 0;
+
+  // Vertical sides: one panel per boundary per module.
+  // Height at boundary b for module m = max of adjacent columns' module-m height.
+  for (let b = 0; b < xs.length; b++) {
+    for (let mi = 0; mi < maxModules; mi++) {
+      const leftMod = b > 0 ? columnModules[b - 1][mi] : undefined;
+      const rightMod = b < doc.columns.length ? columnModules[b][mi] : undefined;
+      if (!leftMod && !rightMod) continue;
+      const h = Math.max(leftMod?.height ?? 0, rightMod?.height ?? 0);
+      if (h <= 0) continue;
+      const startY = leftMod?.startY ?? rightMod!.startY;
+      boxes.push({
+        id: `side-${b}-m${mi}`,
+        role: "side",
+        pos: [xs[b], startY + h / 2, D / 2],
+        size: [t, h, D],
+        color: ROLE_COLORS.side,
+        meta: {
+          side: b === 0 ? "left" : b === xs.length - 1 ? "right" : undefined,
+          module: mi,
+        },
+      });
+    }
   }
 
   doc.columns.forEach((col, ci) => {
     const cx = (xs[ci] + xs[ci + 1]) / 2;
     const innerW = xs[ci + 1] - xs[ci] - t;
-    const k = col.cells.length;
+    const modules = columnModules[ci];
 
-    // deck centers: k+1 horizontal panels.
-    // Outer decks (bottom / top) sit t/2 from the column edge, so they fit
-    // inside the first/last cell's height.  Intermediate decks land exactly on
-    // the boundary between adjacent cells.
-    const totalH = columnHeight(col);
-    const deckCenters: number[] = [t / 2]; // deck 0 = bottom plate
-    let cumH = 0;
-    for (let j = 1; j <= k; j += 1) {
-      cumH += cellH(col.cells[j - 1]);
-      deckCenters.push(j < k ? cumH : totalH - t / 2); // intermediate or top plate
-    }
-    deckCenters.forEach((dc, j) => {
-      boxes.push({
-        id: `deck-${ci}-${j}`,
-        role: "deck",
-        pos: [cx, dc, D / 2],
-        size: [innerW, t, D],
-        color: ROLE_COLORS.deck,
-        meta: { column: ci, deckIndex: j, deckCount: k },
-      });
-    });
+    modules.forEach((mod, mi) => {
+      const k = mod.cells.length;
+      const startY = mod.startY;
+      const totalH = mod.height;
 
-    col.cells.forEach((cell, idx) => {
-      const bottom = deckCenters[idx] + t / 2;
-      const top = deckCenters[idx + 1] - t / 2;
-      const cyc = (bottom + top) / 2;
-      boxes.push({
-        id: `back-${ci}-${idx}`,
-        role: "back",
-        pos: [cx, cyc, D - t / 2],
-        size: [innerW, Math.max(0.02, top - bottom), t],
-        color: ROLE_COLORS.back,
-        meta: { column: ci, cell: idx },
+      // Deck centers: k+1 horizontal panels per module.
+      // Outer decks (bottom/top) sit t/2 from the module edge.
+      const deckCenters: number[] = [startY + t / 2];
+      let cumH = 0;
+      for (let j = 1; j <= k; j++) {
+        cumH += cellH(mod.cells[j - 1]);
+        deckCenters.push(j < k ? startY + cumH : startY + totalH - t / 2);
+      }
+
+      deckCenters.forEach((dc, j) => {
+        boxes.push({
+          id: `deck-${ci}-m${mi}-${j}`,
+          role: "deck",
+          pos: [cx, dc, D / 2],
+          size: [innerW, t, D],
+          color: ROLE_COLORS.deck,
+          meta: { column: ci, deckIndex: j, deckCount: k, module: mi },
+        });
       });
-      addCellContent(boxes, cell, { cx, innerW, bottom, top, D, t, ci, idx, state });
+
+      mod.cells.forEach((cell, localIdx) => {
+        const globalIdx = mod.cellOffset + localIdx;
+        const bottom = deckCenters[localIdx] + t / 2;
+        const top = deckCenters[localIdx + 1] - t / 2;
+        const cyc = (bottom + top) / 2;
+
+        boxes.push({
+          id: `back-${ci}-${globalIdx}`,
+          role: "back",
+          pos: [cx, cyc, D - t / 2],
+          size: [innerW, Math.max(0.02, top - bottom), t],
+          color: ROLE_COLORS.back,
+          meta: { column: ci, cell: globalIdx, module: mi },
+        });
+
+        const before = boxes.length;
+        addCellContent(boxes, cell, { cx, innerW, bottom, top, D, t, ci, idx: globalIdx, state });
+        // Tag newly added content boxes with their module index
+        for (let i = before; i < boxes.length; i++) {
+          boxes[i] = { ...boxes[i], meta: { ...(boxes[i].meta ?? {}), module: mi } };
+        }
+      });
     });
   });
 
@@ -340,71 +405,52 @@ function maxExtent(
 
 interface ExpandCtx {
   center: [number, number, number];
-  D: number;  // cabinet depth; explosion distances are fractions of D
-  R: number;  // horizontal span; used for the small outward side nudge
-  drawerOffsetZ: Map<string, number>; // per-drawer rigid z translation
+  D: number;
+  R: number;
+  drawerOffsetZ: Map<string, number>;
 }
 
-/**
- * "Pull-apart" explosion: covering parts (doors, drawers) slide toward the
- * viewer so the interior becomes visible; structural panels (sides, backs)
- * nudge slightly outward; decks/shelves are already spaced by cell heights so
- * they only need a depth snap to face the camera — no Y re-ordering needed.
- *
- *  doors   → pulled toward viewer so their center sits on the door plane (−0.85·D)
- *  drawers → rigid unit pulled fully out so its REAR face lands on the door
- *            plane — the drawer reads as completely extracted, back flush
- *            with the doors
- *  sides   → small outward X nudge as bookends
- *  backs   → small Z push away from viewer
- *  decks   → depth snapped to C.z only; assembled Y spacing already separates them
- */
 function expandedOffset(box: Box3D, ctx: ExpandCtx): [number, number, number] {
   const { center: C, D, R } = ctx;
   const z = box.pos[2];
 
   if (isDrawer(box)) {
-    // All boxes of one drawer share this z → same offset → rigid unit. The
-    // offset is precomputed so the drawer's rear face aligns with the doors.
     const dz = ctx.drawerOffsetZ.get(drawerKey(box)) ?? -D * 0.65 - z;
     return [0, 0, dz];
   }
 
   switch (box.role) {
     case "door":
-      return [0, 0, -D * 0.85 - z]; // pull toward viewer; keep X and Y
+      return [0, 0, -D * 0.85 - z];
     case "side": {
-      // Only the outer walls move; interior dividers stay in place
       if (!box.meta?.side) return [0, 0, 0];
       const sx = box.meta.side === "left" ? -1 : 1;
       return [sx * R * 0.18, 0, 0];
     }
     case "back":
-      return [0, 0, D * 0.6]; // push behind cabinet; keep X and Y
+      return [0, 0, D * 0.6];
     case "deck":
     case "shelf":
-      // Snap to mid-depth so panels face the camera; keep assembled X and Y —
-      // cell heights already provide clear vertical separation between decks.
       return [0, 0, C[2] - z];
     default:
       return [0, 0, 0];
   }
 }
 
+// Extra vertical gap added between stacked modules in expanded view
+const MODULE_EXPAND_GAP = 0.30; // 30 cm
+
 /**
  * Gentle exploded layout for inspection. Covering parts pull toward the viewer;
  * structural parts stay near their assembled positions. Drawers translate as
- * rigid units.
+ * rigid units. When there are multiple stacked modules, each module above the
+ * first is lifted by MODULE_EXPAND_GAP so they read as separate carcasses.
  */
 export function expandAssembly(boxes: Box3D[], factor = 1): Box3D[] {
   const { center, size } = assemblyBounds(boxes);
   const D = Math.max(maxExtent(boxes, isSide, 2), size[2] * 0.8, 0.1);
   const R = Math.max(size[0], size[1], 0.3);
 
-  // Door parts all settle at center z = −0.85·D (their offset cancels their
-  // assembled z). Pull each drawer out as a rigid unit so its rear-most face
-  // lands on that same plane — the drawer ends up fully extracted, its back
-  // flush with the doors instead of staying buried in the carcass.
   const doorPlane = -0.85 * D;
   const drawerRearZ = new Map<string, number>();
   for (const b of boxes) {
@@ -420,11 +466,14 @@ export function expandAssembly(boxes: Box3D[], factor = 1): Box3D[] {
 
   return boxes.map((box) => {
     const [dx, dy, dz] = expandedOffset(box, ctx);
+    // Lift each stacked module above module 0 by MODULE_EXPAND_GAP so
+    // the two carcasses visually separate in the exploded view.
+    const moduleGap = (box.meta?.module ?? 0) * MODULE_EXPAND_GAP * factor;
     return {
       ...box,
       pos: [
         box.pos[0] + dx * factor,
-        box.pos[1] + dy * factor,
+        box.pos[1] + dy * factor + moduleGap,
         box.pos[2] + dz * factor,
       ],
     };
