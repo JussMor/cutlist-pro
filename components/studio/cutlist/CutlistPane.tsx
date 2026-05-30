@@ -69,6 +69,7 @@ const ROLE_BANDING: Record<StudioPanel["role"], Panel["banding"]> = {
 function toOptimizerPanel(
   panel: StudioPanel,
   stockSheetId: number | null,
+  bandingOverride?: Panel["banding"],
 ): Panel {
   return {
     id: panelId(panel),
@@ -77,7 +78,7 @@ function toOptimizerPanel(
     qty: panel.qty,
     L: panel.height,
     W: panel.width,
-    banding: ROLE_BANDING[panel.role],
+    banding: bandingOverride ?? ROLE_BANDING[panel.role],
     stockSheetId,
     grainDirection: "none",
   };
@@ -204,6 +205,7 @@ export function CutlistPane() {
   const updateManualPanel = useStudioStore((s) => s.updateManualPanel);
   const deleteManualPanel = useStudioStore((s) => s.deleteManualPanel);
   const save = useStudioStore((s) => s.save);
+  const updateBandingOverride = useStudioStore((s) => s.updateBandingOverride);
   const pricing = usePricingStore((s) => s.pricing);
   const setPricingField = usePricingStore((s) => s.setPricingField);
   const { panels } = useMemo(() => computeDespiece(doc), [doc]);
@@ -244,13 +246,15 @@ export function CutlistPane() {
       .map(applyDims);
   }, [globalDims, materialMode, primarySheetId, selectedSheetIds, sheets]);
 
+  const bandingOverrides = doc.bandingOverrides ?? {};
+
   const optimizerPanels = useMemo(() => {
     const auto = panels.map((panel) => {
       const sheetId =
         materialMode === "single"
           ? primarySheetId
           : (panelSheets[panelId(panel)] ?? null);
-      return toOptimizerPanel(panel, sheetId);
+      return toOptimizerPanel(panel, sheetId, bandingOverrides[panel.key]);
     });
     const manual = manualPanels.map((mp) => {
       const sheetId =
@@ -260,7 +264,7 @@ export function CutlistPane() {
       return manualToOptimizerPanel(mp, sheetId);
     });
     return [...auto, ...manual];
-  }, [materialMode, manualPanels, panelSheets, panels, primarySheetId]);
+  }, [materialMode, manualPanels, panelSheets, panels, primarySheetId, bandingOverrides]);
 
   // Pre-flight: panels that won't fit any selected sheet — shown before the user
   // even clicks "Optimizar" so they can fix the sheet selection first.
@@ -541,7 +545,10 @@ export function CutlistPane() {
           {panel.qty}
         </td>
         <td className="px-3 py-2">
-          {optPanel && <BandingIndicator banding={optPanel.banding} />}
+          <BandingToggle
+            banding={bandingOverrides[panel.key] ?? ROLE_BANDING[panel.role]}
+            onChange={(b) => { updateBandingOverride(panel.key, b); void save(); }}
+          />
         </td>
         <td className="px-3 py-2">
           {materialMode === "single" ? (
@@ -591,7 +598,10 @@ export function CutlistPane() {
                 {optPanel.L.toFixed(1)} × {optPanel.W.toFixed(1)} × {panel.thickness.toFixed(1)} cm
               </span>
             )}
-            {optPanel && <BandingIndicator banding={optPanel.banding} />}
+            <BandingToggle
+              banding={bandingOverrides[panel.key] ?? ROLE_BANDING[panel.role]}
+              onChange={(b) => { updateBandingOverride(panel.key, b); void save(); }}
+            />
           </div>
           <div className="mt-1 text-xs text-[#7d879a]">
             {materialMode === "single" ? (
