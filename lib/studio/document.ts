@@ -8,6 +8,10 @@
  * The despiece + geometry engines convert to a single working unit.
  */
 
+/**
+ * Legacy single-axis cell type. Kept for backward compatibility with saved
+ * documents; new code reads `interior` + `front` via the helpers below.
+ */
 export type CellType =
   | "multiple"
   | "shelf"
@@ -16,12 +20,53 @@ export type CellType =
   | "left-door"
   | "right-door";
 
+/** What lives *inside* the compartment, independent of any door in front. */
+export type CellInterior = "empty" | "shelf" | "drawer";
+
+/** The door treatment on the *front* of the compartment, independent of interior. */
+export type CellFront = "none" | "double" | "left" | "right" | "flip-up";
+
 export interface StudioCell {
   id: string;
-  type: CellType;
+  /** @deprecated legacy single-axis type — read via cellInterior()/cellFront() */
+  type?: CellType;
+  interior?: CellInterior; // what's inside (empty / shelves / drawers)
+  front?: CellFront; // door in front (none / double / left / right / flip-up)
   height: number; // centimeters (total exterior section height = lateral height for a single-cell column)
-  shelfCount?: number; // shelf / multiple
-  drawerCount?: number; // drawer
+  shelfCount?: number; // shelf interior
+  drawerCount?: number; // drawer interior
+}
+
+/**
+ * Resolve a cell's interior, falling back to the legacy `type` so old documents
+ * keep rendering without a migration pass.
+ */
+export function cellInterior(cell: StudioCell): CellInterior {
+  if (cell.interior) return cell.interior;
+  switch (cell.type) {
+    case "shelf":
+      return "shelf";
+    case "drawer":
+      return "drawer";
+    default:
+      // "multiple" | "doors" | "left-door" | "right-door" -> open box
+      return "empty";
+  }
+}
+
+/** Resolve a cell's front door, falling back to the legacy `type`. */
+export function cellFront(cell: StudioCell): CellFront {
+  if (cell.front) return cell.front;
+  switch (cell.type) {
+    case "doors":
+      return "double";
+    case "left-door":
+      return "left";
+    case "right-door":
+      return "right";
+    default:
+      return "none";
+  }
 }
 
 export interface StudioColumn {
@@ -75,8 +120,14 @@ function genId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${counter}`;
 }
 
-export function createCell(type: CellType = "shelf"): StudioCell {
-  return { id: genId("cell"), type, height: DEFAULT_CELL_HEIGHT, shelfCount: 1 };
+export function createCell(): StudioCell {
+  return {
+    id: genId("cell"),
+    interior: "shelf",
+    front: "none",
+    height: DEFAULT_CELL_HEIGHT,
+    shelfCount: 1,
+  };
 }
 
 export function createColumn(cells = 1): StudioColumn {
@@ -136,7 +187,9 @@ export function addCell(
   return touch({ ...doc, columns });
 }
 
-export type CellPatch = Partial<Pick<StudioCell, "type" | "height" | "shelfCount" | "drawerCount">>;
+export type CellPatch = Partial<
+  Pick<StudioCell, "interior" | "front" | "height" | "shelfCount" | "drawerCount">
+>;
 
 export function updateCells(
   doc: StudioDocument,
