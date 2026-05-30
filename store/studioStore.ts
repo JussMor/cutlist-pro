@@ -10,13 +10,17 @@ import {
 import {
   addCell as addCellMut,
   addColumn as addColumnMut,
+  addManualPanel as addManualPanelMut,
   columnIdOfCell,
   createStudioDocument,
   deleteCells as deleteCellsMut,
+  deleteManualPanel as deleteManualPanelMut,
   setGlobals as setGlobalsMut,
   updateCells as updateCellsMut,
   updateColumnWidth,
+  updateManualPanel as updateManualPanelMut,
   type CellPatch,
+  type ManualPanel,
   type StudioColumn,
   type StudioDocument,
   type StudioGlobals,
@@ -50,6 +54,10 @@ interface StudioState {
   setSelectionWidth: (width: number) => void;
   deleteSelection: () => void;
   setGlobals: (patch: Partial<StudioGlobals>) => void;
+
+  addManualPanel: (panel: Omit<ManualPanel, "id">) => void;
+  updateManualPanel: (id: string, patch: Partial<Omit<ManualPanel, "id">>) => void;
+  deleteManualPanel: (id: string) => void;
 
   newDocument: () => void;
   load: (id: string) => Promise<void>;
@@ -107,13 +115,22 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     })),
   setGlobals: (patch) => set((s) => ({ doc: setGlobalsMut(s.doc, patch) })),
 
+  addManualPanel: (panel) =>
+    set((s) => ({ doc: addManualPanelMut(s.doc, panel) })),
+  updateManualPanel: (id, patch) =>
+    set((s) => ({ doc: updateManualPanelMut(s.doc, id, patch) })),
+  deleteManualPanel: (id) =>
+    set((s) => ({ doc: deleteManualPanelMut(s.doc, id) })),
+
   newDocument: () =>
     set({ doc: createStudioDocument(), selection: [], publishedAt: undefined }),
 
   load: async (id) => {
     const record = await loadStudioDoc(id);
-    if (record)
-      set({ doc: record.document, publishedAt: record.publishedAt, selection: [] });
+    if (record) {
+      const doc = { manualPanels: [], ...record.document };
+      set({ doc, publishedAt: record.publishedAt, selection: [] });
+    }
   },
 
   save: async () => {

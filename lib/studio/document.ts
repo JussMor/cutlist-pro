@@ -36,11 +36,22 @@ export interface StudioGlobals {
   overhang: number; // mm
 }
 
+export interface ManualPanel {
+  id: string;
+  label: string;
+  L: number; // largo (cm)
+  W: number; // ancho (cm)
+  thickness: number; // espesor (cm)
+  qty: number;
+  banding: { top: boolean; bottom: boolean; left: boolean; right: boolean };
+}
+
 export interface StudioDocument {
   id: string;
   title: string;
   columns: StudioColumn[];
   globals: StudioGlobals;
+  manualPanels: ManualPanel[];
   createdAt: number;
   updatedAt: number;
 }
@@ -78,6 +89,7 @@ export function createStudioDocument(title = "untitled"): StudioDocument {
     title,
     columns: [],
     globals: { ...DEFAULT_GLOBALS },
+    manualPanels: [],
     createdAt: now,
     updatedAt: now,
   };
@@ -166,4 +178,28 @@ export function setGlobals(
   patch: Partial<StudioGlobals>,
 ): StudioDocument {
   return touch({ ...doc, globals: { ...doc.globals, ...patch } });
+}
+
+export function addManualPanel(
+  doc: StudioDocument,
+  panel: Omit<ManualPanel, "id">,
+): StudioDocument {
+  const manualPanels = [...(doc.manualPanels ?? []), { ...panel, id: genId("mp") }];
+  return touch({ ...doc, manualPanels });
+}
+
+export function updateManualPanel(
+  doc: StudioDocument,
+  id: string,
+  patch: Partial<Omit<ManualPanel, "id">>,
+): StudioDocument {
+  const manualPanels = (doc.manualPanels ?? []).map((p) =>
+    p.id === id ? { ...p, ...patch } : p,
+  );
+  return touch({ ...doc, manualPanels });
+}
+
+export function deleteManualPanel(doc: StudioDocument, id: string): StudioDocument {
+  const manualPanels = (doc.manualPanels ?? []).filter((p) => p.id !== id);
+  return touch({ ...doc, manualPanels });
 }
