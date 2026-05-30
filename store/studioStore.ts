@@ -128,7 +128,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   load: async (id) => {
     const record = await loadStudioDoc(id);
     if (record) {
-      const doc = { manualPanels: [], ...record.document };
+      const doc = { ...record.document, manualPanels: record.document.manualPanels ?? [] };
       set({ doc, publishedAt: record.publishedAt, selection: [] });
     }
   },
