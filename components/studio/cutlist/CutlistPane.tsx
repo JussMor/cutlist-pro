@@ -82,6 +82,19 @@ function toOptimizerPanel(
   };
 }
 
+function BandingIndicator({ banding }: { banding: Panel["banding"] }) {
+  const on = "#f4b450";
+  const off = "#2a3040";
+  return (
+    <svg width="28" height="22" viewBox="0 0 28 22" fill="none" className="shrink-0">
+      <line x1="3" y1="3" x2="25" y2="3" stroke={banding.top ? on : off} strokeWidth={banding.top ? 3 : 1.5} strokeLinecap="round" />
+      <line x1="3" y1="19" x2="25" y2="19" stroke={banding.bottom ? on : off} strokeWidth={banding.bottom ? 3 : 1.5} strokeLinecap="round" />
+      <line x1="3" y1="3" x2="3" y2="19" stroke={banding.left ? on : off} strokeWidth={banding.left ? 3 : 1.5} strokeLinecap="round" />
+      <line x1="25" y1="3" x2="25" y2="19" stroke={banding.right ? on : off} strokeWidth={banding.right ? 3 : 1.5} strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function splitPreferenceLabel(value: GuillotineSplitPreference) {
   if (value === "vertical-first") return "Normal";
   if (value === "horizontal-first") return "Invertida";
@@ -281,6 +294,9 @@ export function CutlistPane() {
           {panel.qty}
         </td>
         <td className="px-3 py-2">
+          {optPanel && <BandingIndicator banding={optPanel.banding} />}
+        </td>
+        <td className="px-3 py-2">
           {materialMode === "single" ? (
             <span className="block max-w-60 truncate text-[#9aa4b6]">
               {selectedSheetName(primarySheetId)}
@@ -413,7 +429,7 @@ export function CutlistPane() {
           )}
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] border-collapse text-xs">
+            <table className="w-full min-w-[820px] border-collapse text-xs">
               <thead>
                 <tr className="text-left text-[#7d879a]">
                   <th className="px-3 py-2 font-medium">Pieza</th>
@@ -421,6 +437,7 @@ export function CutlistPane() {
                   <th className="px-3 py-2 font-medium">Ancho</th>
                   <th className="px-3 py-2 font-medium">Espesor</th>
                   <th className="px-3 py-2 font-medium">Cantidad</th>
+                  <th className="px-3 py-2 font-medium">Canto</th>
                   <th className="px-3 py-2 font-medium">Melamina</th>
                 </tr>
               </thead>
@@ -437,7 +454,7 @@ export function CutlistPane() {
                       <tr
                         className="border-t border-[#1c2330] bg-[#111824]"
                       >
-                        <td colSpan={5} className="px-3 py-3">
+                        <td colSpan={6} className="px-3 py-3">
                           <button
                             type="button"
                             className="flex items-center gap-3 text-left"
