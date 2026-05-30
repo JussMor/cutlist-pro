@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, Pencil } from "lucide-react";
+import { Box, ChevronLeft } from "lucide-react";
 import { useState } from "react";
 
 import { cn } from "@/lib/utils";
@@ -45,7 +45,7 @@ export function DesignPane() {
               onClick={() => setMobileView("2d")}
               className="absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-full bg-[#11151d]/90 px-3 py-1.5 text-xs font-medium text-[#d7dde9] shadow backdrop-blur"
             >
-              <Pencil className="size-3.5" />
+              <ChevronLeft className="size-3.5" />
               Editar
             </button>
             <Viewer3D />
