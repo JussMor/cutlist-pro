@@ -74,6 +74,17 @@ function DottedFloor({
   );
 }
 
+/** Stable key that survives column/cell reordering within the same document. */
+function backPanelKey(box: Box3D, doc: StudioDocument): string | null {
+  const ci = box.meta?.column;
+  const idx = box.meta?.cell;
+  if (ci == null || idx == null) return null;
+  const col = doc.columns[ci];
+  const cell = col?.cells[idx];
+  if (!col || !cell) return null;
+  return `${col.id}/${cell.id}`;
+}
+
 export default function Scene({
   doc,
   mode,
@@ -83,9 +94,12 @@ export default function Scene({
   doc: StudioDocument;
   mode: RenderMode;
   colorMode: ColorMode;
-  onToggleBackPanel?: () => void;
+  onToggleBackPanel?: (key: string) => void;
 }) {
-  const includeBackPanel = doc.globals.includeBackPanel ?? true;
+  const hiddenSet = useMemo(
+    () => new Set(doc.globals.hiddenBackPanels ?? []),
+    [doc.globals.hiddenBackPanels],
+  );
 
   const boxes = useMemo(() => {
     // Expanded shows the cabinet disassembled with the doors flat (closed), so
@@ -112,19 +126,23 @@ export default function Scene({
       <directionalLight position={[6, 9, 6]} intensity={1.15} castShadow />
       <directionalLight position={[-6, 4, -5]} intensity={0.4} />
       <group>
-        {boxes.map((b) => (
-          <PanelMesh
-            key={b.id}
-            box={b}
-            colorMode={colorMode}
-            onLongPress={
-              b.role === "back" && mode === "expanded"
-                ? onToggleBackPanel
-                : undefined
-            }
-            isGhosted={b.role === "back" && !includeBackPanel}
-          />
-        ))}
+        {boxes.map((b) => {
+          const key = b.role === "back" ? backPanelKey(b, doc) : null;
+          const isGhosted = key !== null && hiddenSet.has(key);
+          return (
+            <PanelMesh
+              key={b.id}
+              box={b}
+              colorMode={colorMode}
+              onLongPress={
+                key !== null && mode === "expanded" && onToggleBackPanel
+                  ? () => onToggleBackPanel(key)
+                  : undefined
+              }
+              isGhosted={isGhosted}
+            />
+          );
+        })}
       </group>
       <DottedFloor cx={cx} y={bounds.min[1] - 0.002} cz={cz} colorMode={colorMode} />
       <OrbitControls makeDefault enableDamping target={[cx, cy, cz]} />
