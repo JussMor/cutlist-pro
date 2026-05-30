@@ -62,6 +62,7 @@ export interface StudioDocument {
 
 export const DEFAULT_COLUMN_WIDTH = 45;
 export const DEFAULT_CELL_HEIGHT = 30;
+export const MAX_MODULE_HEIGHT_CM = 240;
 export const DEFAULT_GLOBALS: StudioGlobals = {
   depth: 45,
   thickness: 15,

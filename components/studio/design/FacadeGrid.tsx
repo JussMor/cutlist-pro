@@ -1,11 +1,27 @@
 "use client";
 
+import { MAX_MODULE_HEIGHT_CM } from "@/lib/studio/document";
 import { useStudioStore } from "@/store/studioStore";
 
 import { AddAffordance } from "./AddAffordance";
 import { GridCell } from "./GridCell";
+import type { StudioColumn } from "@/lib/studio/document";
 
 const LETTERS = "ABCDEFGHIJ";
+
+/** Returns the number of stacked modules the column produces. */
+function moduleCount(col: StudioColumn): number {
+  let count = 1;
+  let cumH = 0;
+  for (const cell of col.cells) {
+    if (cumH > 0 && cumH + cell.height > MAX_MODULE_HEIGHT_CM) {
+      count++;
+      cumH = 0;
+    }
+    cumH += cell.height;
+  }
+  return count;
+}
 
 export function FacadeGrid() {
   const doc = useStudioStore((s) => s.doc);
@@ -47,35 +63,70 @@ export function FacadeGrid() {
         onClick={() => addColumn(0)}
         className="mb-12"
       />
-      {doc.columns.map((col, ci) => (
-        <div key={col.id} className="flex flex-col items-center gap-2">
-          <AddAffordance
-            title="Agregar módulo encima"
-            onClick={() => addCell(col.id)}
-          />
-          {/* cells[] is bottom -> top; flex-col-reverse stacks the first
-              element on the floor so the column grows up from a shared base. */}
-          <div className="flex flex-col-reverse">
-            {col.cells.map((cell) => (
-              <GridCell
-                key={cell.id}
-                cell={cell}
-                colorMode={colorMode}
-                selected={selSet.has(cell.id)}
-                onSelect={toggleSelect}
-              />
-            ))}
+      {doc.columns.map((col, ci) => {
+        const mCount = moduleCount(col);
+        return (
+          <div key={col.id} className="flex flex-col items-center gap-2">
+            <AddAffordance
+              title="Agregar módulo encima"
+              onClick={() => addCell(col.id)}
+            />
+            {/* cells[] is bottom -> top; flex-col-reverse stacks the first
+                element on the floor so the column grows up from a shared base. */}
+            <div className="flex flex-col-reverse">
+              {(() => {
+                const elements: React.ReactNode[] = [];
+                let cumH = 0;
+                let mi = 0;
+                col.cells.forEach((cell, idx) => {
+                  if (idx > 0 && cumH + cell.height > MAX_MODULE_HEIGHT_CM) {
+                    mi++;
+                    cumH = 0;
+                    // Separator inserted here appears between modules in the
+                    // flex-col-reverse visual order (above the last cell of the
+                    // lower module, below the first cell of the upper module).
+                    elements.push(
+                      <div
+                        key={`sep-m${mi}`}
+                        className="relative my-0.5 w-full border-t-2 border-dashed border-[#f4b450]"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span className="absolute -top-3 right-0 rounded bg-[#0f1520] px-1 text-[9px] font-semibold text-[#f4b450]">
+                          M{mi + 1}
+                        </span>
+                      </div>,
+                    );
+                  }
+                  cumH += cell.height;
+                  elements.push(
+                    <GridCell
+                      key={cell.id}
+                      cell={cell}
+                      colorMode={colorMode}
+                      selected={selSet.has(cell.id)}
+                      onSelect={toggleSelect}
+                    />,
+                  );
+                });
+                return elements;
+              })()}
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <span className="flex size-6 items-center justify-center rounded-full bg-[#1a2230] text-[10px] font-semibold text-[#9aa4b6]">
+                {LETTERS[ci] ?? ci + 1}
+              </span>
+              <span className="text-[11px] text-[#7d879a]">
+                {col.width.toFixed(0)} cm
+              </span>
+              {mCount > 1 && (
+                <span className="rounded-full bg-[#f4b450] px-1.5 py-0.5 text-[9px] font-bold text-[#17120a]">
+                  {mCount}M
+                </span>
+              )}
+            </div>
           </div>
-          <div className="flex flex-col items-center gap-1">
-            <span className="flex size-6 items-center justify-center rounded-full bg-[#1a2230] text-[10px] font-semibold text-[#9aa4b6]">
-              {LETTERS[ci] ?? ci + 1}
-            </span>
-            <span className="text-[11px] text-[#7d879a]">
-              {col.width.toFixed(0)} cm
-            </span>
-          </div>
-        </div>
-      ))}
+        );
+      })}
       <AddAffordance
         title="Agregar columna al final"
         onClick={() => addColumn(doc.columns.length)}
