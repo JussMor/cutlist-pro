@@ -4,8 +4,6 @@ import type { StudioCell } from "@/lib/studio/document";
 import { cn } from "@/lib/utils";
 import type { ColorMode } from "@/store/studioStore";
 
-export const SCALE = 4; // px per centimeter for the 2D facade
-
 interface Palette {
   front: string; // door / drawer front fill
   knob: string; // hardware dot
@@ -21,13 +19,11 @@ const PALETTES: Record<ColorMode, Palette> = {
 
 export function GridCell({
   cell,
-  columnWidth,
   colorMode,
   selected,
   onSelect,
 }: {
   cell: StudioCell;
-  columnWidth: number;
   colorMode: ColorMode;
   selected: boolean;
   onSelect: (id: string, additive: boolean) => void;
@@ -43,12 +39,8 @@ export function GridCell({
         e.stopPropagation();
         onSelect(cell.id, e.shiftKey || e.metaKey || e.ctrlKey);
       }}
-      style={{
-        width: Math.max(40, columnWidth * SCALE),
-        height: Math.max(30, cell.height * SCALE),
-      }}
       className={cn(
-        "relative border bg-[#12100f] transition-all",
+        "relative h-20 w-20 border bg-[#12100f] transition-all",
         selected
           ? "z-10 border-[#f4b450] ring-2 ring-[#f4b450]/70"
           : "border-[#5b5a58] hover:border-[#8d8985]",

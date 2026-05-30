@@ -48,6 +48,23 @@ function panelId(panel: StudioPanel) {
   return `studio-${panel.badge}-${panel.key.replace(/[^a-z0-9]+/gi, "-")}`;
 }
 
+const ROLE_BANDING: Record<StudioPanel["role"], Panel["banding"]> = {
+  // front vertical edge of side panel = left edge (length L = column height)
+  "vertical-side": { top: false, bottom: false, left: true, right: false },
+  // front edge of shelf/deck = left edge (length L = inner width, after L/W fix)
+  "horizontal-deck": { top: false, bottom: false, left: true, right: false },
+  // all 4 edges visible on doors and drawer fronts
+  door: { top: true, bottom: true, left: true, right: true },
+  "drawer-front": { top: true, bottom: true, left: true, right: true },
+  // top edge of drawer side is visible when looking into the drawer
+  "drawer-side": { top: true, bottom: false, left: false, right: false },
+  // hidden parts — no banding
+  "back-panel": { top: false, bottom: false, left: false, right: false },
+  "drawer-back": { top: false, bottom: false, left: false, right: false },
+  "drawer-bottom": { top: false, bottom: false, left: false, right: false },
+  "drawer-inner-front": { top: false, bottom: false, left: false, right: false },
+};
+
 function toOptimizerPanel(
   panel: StudioPanel,
   stockSheetId: number | null,
@@ -59,10 +76,23 @@ function toOptimizerPanel(
     qty: panel.qty,
     L: panel.height,
     W: panel.width,
-    banding: { top: false, bottom: false, left: false, right: false },
+    banding: ROLE_BANDING[panel.role],
     stockSheetId,
     grainDirection: "none",
   };
+}
+
+function BandingIndicator({ banding }: { banding: Panel["banding"] }) {
+  const on = "#f4b450";
+  const off = "#2a3040";
+  return (
+    <svg width="28" height="22" viewBox="0 0 28 22" fill="none" className="shrink-0">
+      <line x1="3" y1="3" x2="25" y2="3" stroke={banding.top ? on : off} strokeWidth={banding.top ? 3 : 1.5} strokeLinecap="round" />
+      <line x1="3" y1="19" x2="25" y2="19" stroke={banding.bottom ? on : off} strokeWidth={banding.bottom ? 3 : 1.5} strokeLinecap="round" />
+      <line x1="3" y1="3" x2="3" y2="19" stroke={banding.left ? on : off} strokeWidth={banding.left ? 3 : 1.5} strokeLinecap="round" />
+      <line x1="25" y1="3" x2="25" y2="19" stroke={banding.right ? on : off} strokeWidth={banding.right ? 3 : 1.5} strokeLinecap="round" />
+    </svg>
+  );
 }
 
 function splitPreferenceLabel(value: GuillotineSplitPreference) {
@@ -264,6 +294,9 @@ export function CutlistPane() {
           {panel.qty}
         </td>
         <td className="px-3 py-2">
+          {optPanel && <BandingIndicator banding={optPanel.banding} />}
+        </td>
+        <td className="px-3 py-2">
           {materialMode === "single" ? (
             <span className="block max-w-60 truncate text-[#9aa4b6]">
               {selectedSheetName(primarySheetId)}
@@ -396,7 +429,7 @@ export function CutlistPane() {
           )}
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] border-collapse text-xs">
+            <table className="w-full min-w-[820px] border-collapse text-xs">
               <thead>
                 <tr className="text-left text-[#7d879a]">
                   <th className="px-3 py-2 font-medium">Pieza</th>
@@ -404,6 +437,7 @@ export function CutlistPane() {
                   <th className="px-3 py-2 font-medium">Ancho</th>
                   <th className="px-3 py-2 font-medium">Espesor</th>
                   <th className="px-3 py-2 font-medium">Cantidad</th>
+                  <th className="px-3 py-2 font-medium">Canto</th>
                   <th className="px-3 py-2 font-medium">Melamina</th>
                 </tr>
               </thead>
@@ -420,7 +454,7 @@ export function CutlistPane() {
                       <tr
                         className="border-t border-[#1c2330] bg-[#111824]"
                       >
-                        <td colSpan={5} className="px-3 py-3">
+                        <td colSpan={6} className="px-3 py-3">
                           <button
                             type="button"
                             className="flex items-center gap-3 text-left"

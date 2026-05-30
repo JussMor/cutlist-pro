@@ -97,10 +97,12 @@ function rawFromBox(box: Box3D): RawPanel {
     return { role: r, orientation: "vertical-yz", width: toCm(sz), height: toCm(sy), thickness: toCm(sx) };
   }
   if (r === "horizontal-deck") {
-    return { role: r, orientation: "horizontal-xz", width: toCm(sx), height: toCm(sz), thickness: toCm(sy) };
+    // height → innerW (cabinet opening, Largo); width → D (depth/fondo, Ancho)
+    return { role: r, orientation: "horizontal-xz", width: toCm(sz), height: toCm(sx), thickness: toCm(sy) };
   }
   if (r === "drawer-bottom") {
-    return { role: r, orientation: "horizontal-xz", width: toCm(sx), height: toCm(sz), thickness: toCm(sy) };
+    // height → drawerInnerW (Largo); width → drawerDepth (Ancho)
+    return { role: r, orientation: "horizontal-xz", width: toCm(sz), height: toCm(sx), thickness: toCm(sy) };
   }
   // back-panel, door, drawer-front/back/inner-front: flat in the x-y plane
   return { role: r, orientation: "vertical-xy", width: toCm(sx), height: toCm(sy), thickness: toCm(sz) };

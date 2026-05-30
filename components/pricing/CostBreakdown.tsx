@@ -26,6 +26,10 @@ export function CostBreakdown({ breakdown }: Props) {
         <strong>${breakdown.banding.toFixed(2)}</strong>
       </div>
       <div className="metric">
+        <span>Margen (15%)</span>
+        <strong>${breakdown.margin.toFixed(2)}</strong>
+      </div>
+      <div className="metric">
         <span>Total</span>
         <strong className="price">${breakdown.total.toFixed(2)}</strong>
       </div>

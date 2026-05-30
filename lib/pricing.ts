@@ -10,11 +10,14 @@ export function calculateCost(
   );
   const cutting = result.stats.totalCuts * config.costPerCut;
   const banding = result.stats.totalBandingLength * config.costPerBandingMeter;
+  const subtotal = material + cutting + banding;
+  const margin = subtotal * (config.marginPercent ?? 0);
 
   return {
     material,
     cutting,
     banding,
-    total: material + cutting + banding,
+    margin,
+    total: subtotal + margin,
   };
 }

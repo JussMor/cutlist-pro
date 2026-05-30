@@ -60,7 +60,6 @@ export function FacadeGrid() {
               <GridCell
                 key={cell.id}
                 cell={cell}
-                columnWidth={col.width}
                 colorMode={colorMode}
                 selected={selSet.has(cell.id)}
                 onSelect={toggleSelect}
