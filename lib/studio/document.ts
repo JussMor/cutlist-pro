@@ -61,7 +61,7 @@ export const DEFAULT_COLUMN_WIDTH = 45;
 export const DEFAULT_CELL_HEIGHT = 30;
 export const DEFAULT_GLOBALS: StudioGlobals = {
   depth: 45,
-  thickness: 18,
+  thickness: 15,
   overhang: 0,
 };
 
