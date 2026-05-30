@@ -1,6 +1,11 @@
 "use client";
 
-import { DEFAULT_CELL_HEIGHT, type StudioCell } from "@/lib/studio/document";
+import {
+  cellFront,
+  cellInterior,
+  DEFAULT_CELL_HEIGHT,
+  type StudioCell,
+} from "@/lib/studio/document";
 import { cn } from "@/lib/utils";
 import type { ColorMode } from "@/store/studioStore";
 
@@ -31,6 +36,11 @@ export function GridCell({
   const pal = PALETTES[colorMode];
   const drawerCount = Math.max(1, cell.drawerCount ?? 1);
   const shelfCount = Math.max(1, cell.shelfCount ?? 1);
+  const interior = cellInterior(cell);
+  const front = cellFront(cell);
+  // When there are shelves/drawers behind a door we render the door slightly
+  // translucent so the interior reads through — "you can tell what's inside".
+  const doorOpacity = interior === "empty" ? 1 : 0.82;
 
   // All cell types grow proportionally. Base: DEFAULT_CELL_HEIGHT (30 cm) = 40 px.
   // 3 m = 400 px — fits on iPhone 13 Pro Max (926 px portrait) with room for UI.
@@ -52,7 +62,8 @@ export function GridCell({
           : "border-[#5b5a58] hover:border-[#8d8985]",
       )}
     >
-      {cell.type === "drawer" && (
+      {/* ---- Interior (drawn first, behind any door) ---- */}
+      {interior === "drawer" && (
         <div className="absolute inset-1.5 flex flex-col-reverse gap-1">
           {Array.from({ length: drawerCount }).map((_, i) => (
             <div
@@ -69,56 +80,7 @@ export function GridCell({
         </div>
       )}
 
-      {cell.type === "left-door" && (
-        <span
-          className="absolute inset-2 rounded-[1px] border-r-4 border-black/40"
-          style={{ background: pal.front }}
-        >
-          <span
-            className="absolute right-2 top-3 size-1.5 rounded-full"
-            style={{ background: pal.knob }}
-          />
-        </span>
-      )}
-
-      {cell.type === "right-door" && (
-        <span
-          className="absolute inset-2 rounded-[1px] border-l-4 border-black/40"
-          style={{ background: pal.front }}
-        >
-          <span
-            className="absolute left-2 top-3 size-1.5 rounded-full"
-            style={{ background: pal.knob }}
-          />
-        </span>
-      )}
-
-      {cell.type === "doors" && (
-        <span className="absolute inset-2 grid grid-cols-2 gap-1">
-          <span
-            className="relative rounded-[1px]"
-            style={{ background: pal.front }}
-          >
-            <span
-              className="absolute right-2 top-3 size-1.5 rounded-full"
-              style={{ background: pal.knob }}
-            />
-          </span>
-          <span
-            className="relative rounded-[1px]"
-            style={{ background: pal.front }}
-          >
-            <span
-              className="absolute left-2 top-3 size-1.5 rounded-full"
-              style={{ background: pal.knob }}
-            />
-          </span>
-        </span>
-      )}
-
-      {/* "multiple" is an open/empty compartment (matches the 3D, which builds
-          no content for it) — only "shelf" draws divider lines. */}
-      {cell.type === "shelf" && (
+      {interior === "shelf" && (
         <div className="absolute inset-x-2 inset-y-2 flex flex-col justify-evenly">
           {Array.from({ length: shelfCount }).map((_, i) => (
             <span
@@ -128,6 +90,61 @@ export function GridCell({
             />
           ))}
         </div>
+      )}
+
+      {/* ---- Front door (drawn on top; translucent if there's an interior) ---- */}
+      {front === "left" && (
+        <span
+          className="absolute inset-2 rounded-[1px] border-r-4 border-black/40"
+          style={{ background: pal.front, opacity: doorOpacity }}
+        >
+          <span
+            className="absolute right-2 top-3 size-1.5 rounded-full"
+            style={{ background: pal.knob }}
+          />
+        </span>
+      )}
+
+      {front === "right" && (
+        <span
+          className="absolute inset-2 rounded-[1px] border-l-4 border-black/40"
+          style={{ background: pal.front, opacity: doorOpacity }}
+        >
+          <span
+            className="absolute left-2 top-3 size-1.5 rounded-full"
+            style={{ background: pal.knob }}
+          />
+        </span>
+      )}
+
+      {front === "double" && (
+        <span className="absolute inset-2 grid grid-cols-2 gap-1" style={{ opacity: doorOpacity }}>
+          <span className="relative rounded-[1px]" style={{ background: pal.front }}>
+            <span
+              className="absolute right-2 top-3 size-1.5 rounded-full"
+              style={{ background: pal.knob }}
+            />
+          </span>
+          <span className="relative rounded-[1px]" style={{ background: pal.front }}>
+            <span
+              className="absolute left-2 top-3 size-1.5 rounded-full"
+              style={{ background: pal.knob }}
+            />
+          </span>
+        </span>
+      )}
+
+      {front === "flip-up" && (
+        <span
+          className="absolute inset-2 rounded-[1px] border-t-4 border-black/40"
+          style={{ background: pal.front, opacity: doorOpacity }}
+        >
+          {/* handle along the bottom edge for a lift-up door */}
+          <span
+            className="absolute bottom-2 left-1/2 size-1.5 -translate-x-1/2 rounded-full"
+            style={{ background: pal.knob }}
+          />
+        </span>
       )}
     </button>
   );
