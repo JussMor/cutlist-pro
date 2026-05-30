@@ -217,6 +217,25 @@ export function CutlistPane() {
     return [...auto, ...manual];
   }, [materialMode, manualPanels, panelSheets, panels, primarySheetId]);
 
+  const unplacedWarnings = useMemo(() => {
+    if (!result || result.stats.unplacedPanels === 0) return [];
+    const placedCounts: Record<string, number> = {};
+    for (const sheet of result.sheets) {
+      for (const p of sheet.placed) {
+        placedCounts[p.panelId] = (placedCounts[p.panelId] ?? 0) + 1;
+      }
+    }
+    return optimizerPanels
+      .filter((p) => (placedCounts[p.id] ?? 0) < p.qty)
+      .map((p) => ({
+        id: p.id,
+        label: p.label,
+        L: p.L,
+        W: p.W,
+        missing: p.qty - (placedCounts[p.id] ?? 0),
+      }));
+  }, [result, optimizerPanels]);
+
   const structuralPanels = useMemo(
     () => panels.filter((panel) => !isDrawerPanel(panel)),
     [panels],
@@ -645,6 +664,24 @@ export function CutlistPane() {
           {error && (
             <div className="mb-4 rounded-md border border-[#6b3d2d] bg-[#21130f] px-3 py-2 text-xs text-[#f2a987]">
               {error}
+            </div>
+          )}
+
+          {unplacedWarnings.length > 0 && (
+            <div className="mb-4 rounded-md border border-[#7c5a1e] bg-[#1e1508] px-3 py-2 text-xs text-[#f4b450]">
+              <p className="mb-1.5 font-semibold">
+                {unplacedWarnings.length === 1
+                  ? "1 pieza no cabe en la plancha seleccionada"
+                  : `${unplacedWarnings.length} tipos de pieza no caben en la plancha seleccionada`}
+              </p>
+              <ul className="space-y-0.5 text-[#d4a030]">
+                {unplacedWarnings.map((w) => (
+                  <li key={w.id}>
+                    × {w.missing} {w.label} — {w.L.toFixed(1)} × {w.W.toFixed(1)} cm
+                    {" "}(plancha mín. {Math.max(w.L, w.W).toFixed(0)} cm)
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
