@@ -149,6 +149,50 @@ function isDrawerPanel(panel: StudioPanel) {
   return panel.role.startsWith("drawer-");
 }
 
+function panelFitsSheet(panel: Panel, sheet: StockSheet): boolean {
+  return (
+    (panel.L <= sheet.L && panel.W <= sheet.W) ||
+    (panel.W <= sheet.L && panel.L <= sheet.W)
+  );
+}
+
+function panelFitsAnySheet(panel: Panel, sheets: StockSheet[]): boolean {
+  return sheets.some((s) => panelFitsSheet(panel, s));
+}
+
+/** Deduplicate source sheets by material+dimensions — the optimizer treats
+ *  sheets of equal size as interchangeable, so sending duplicates inflates
+ *  the layout count without adding value. Remap panel stockSheetIds to the
+ *  canonical representative for each group. */
+function canonicalizeMixedSheets(
+  panels: Panel[],
+  sheets: StockSheet[],
+): { panels: Panel[]; sheets: StockSheet[] } {
+  const canonicalId = new Map<number, number>(); // odooId → canonical odooId
+  const seen = new Map<string, number>(); // "material|LxW" → canonical odooId
+  const dedupedSheets: StockSheet[] = [];
+
+  for (const sheet of sheets) {
+    const key = `${sheet.material ?? ""}|${sheet.L}x${sheet.W}`;
+    const existing = seen.get(key);
+    if (existing != null) {
+      canonicalId.set(sheet.odooId, existing);
+    } else {
+      seen.set(key, sheet.odooId);
+      canonicalId.set(sheet.odooId, sheet.odooId);
+      dedupedSheets.push(sheet);
+    }
+  }
+
+  const remappedPanels = panels.map((p) => {
+    if (!p.stockSheetId) return p;
+    const cId = canonicalId.get(p.stockSheetId) ?? p.stockSheetId;
+    return cId !== p.stockSheetId ? { ...p, stockSheetId: cId } : p;
+  });
+
+  return { panels: remappedPanels, sheets: dedupedSheets };
+}
+
 function drawerCollectionIndex(panel: StudioPanel) {
   const match = panel.badge.match(/\d+$/);
   return match ? Number(match[0]) : 1;
@@ -216,6 +260,13 @@ export function CutlistPane() {
     });
     return [...auto, ...manual];
   }, [materialMode, manualPanels, panelSheets, panels, primarySheetId]);
+
+  // Pre-flight: panels that won't fit any selected sheet — shown before the user
+  // even clicks "Optimizar" so they can fix the sheet selection first.
+  const oversizedPanels = useMemo(() => {
+    if (assignableSheets.length === 0) return [];
+    return optimizerPanels.filter((p) => !panelFitsAnySheet(p, assignableSheets));
+  }, [optimizerPanels, assignableSheets]);
 
   const unplacedWarnings = useMemo(() => {
     if (!result || result.stats.unplacedPanels === 0) return [];
@@ -574,9 +625,28 @@ export function CutlistPane() {
       if (assignableSheets.length === 0) {
         throw new Error("Selecciona al menos un tablero para optimizar.");
       }
-      const optimized = await optimize(optimizerPanels, assignableSheets, pricing, {
-        splitPreference,
-      });
+
+      let panels = optimizerPanels;
+      let source = assignableSheets;
+
+      // Mixed mode: canonicalize duplicate sheets (same material+dims) so the
+      // optimizer doesn't create separate layouts for identical materials.
+      if (materialMode === "mixed") {
+        ({ panels, sheets: source } = canonicalizeMixedSheets(panels, source));
+      }
+
+      const optimized = await optimize(panels, source, pricing, { splitPreference });
+
+      const placedCount = optimized.sheets.reduce(
+        (sum, s) => sum + s.placed.length,
+        0,
+      );
+      if (panels.length > 0 && placedCount === 0) {
+        throw new Error(
+          "No se pudo ubicar ninguna pieza. Revisá las dimensiones de la plancha o la asignación por pieza.",
+        );
+      }
+
       setResult(optimized);
     } catch (e) {
       setResult(null);
@@ -660,6 +730,24 @@ export function CutlistPane() {
               {optimizing ? "Optimizando" : "Optimizar corte"}
             </button>
           </div>
+
+          {oversizedPanels.length > 0 && (
+            <div className="mb-4 rounded-md border border-[#7c5a1e] bg-[#1e1508] px-3 py-2 text-xs text-[#f4b450]">
+              <p className="mb-1 font-semibold">
+                {oversizedPanels.length === 1
+                  ? "1 pieza supera las dimensiones de la plancha seleccionada"
+                  : `${oversizedPanels.length} piezas superan las dimensiones de la plancha seleccionada`}
+              </p>
+              <ul className="space-y-0.5 text-[#d4a030]">
+                {oversizedPanels.map((p) => (
+                  <li key={p.id}>
+                    {p.label} — {p.L.toFixed(1)} × {p.W.toFixed(1)} cm
+                    {" "}(plancha mín. {Math.max(p.L, p.W).toFixed(0)} cm)
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {error && (
             <div className="mb-4 rounded-md border border-[#6b3d2d] bg-[#21130f] px-3 py-2 text-xs text-[#f2a987]">
