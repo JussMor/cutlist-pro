@@ -48,10 +48,10 @@ const mm = (v: number) => v / 1000;
 const cm = (v: number) => v / 100;
 const cellH = (c: StudioCell) => Math.max(0.02, cm(c.height));
 
-/** Structural height of a column: a deck under/over every cell + the openings. */
-function columnHeight(col: StudioColumn, t: number): number {
-  const openings = col.cells.reduce((acc, c) => acc + cellH(c), 0);
-  return (col.cells.length + 1) * t + openings;
+/** Structural height of a column: sum of cell heights (each cell's input is its
+ *  total exterior section height, with top/bottom boards fitting inside). */
+function columnHeight(col: StudioColumn): number {
+  return col.cells.reduce((acc, c) => acc + cellH(c), 0);
 }
 
 interface CellCtx {
@@ -226,7 +226,7 @@ export function buildAssembly(
   for (const col of doc.columns) {
     xs.push(xs[xs.length - 1] + Math.max(0.05, cm(col.width)));
   }
-  const heights = doc.columns.map((c) => columnHeight(c, t));
+  const heights = doc.columns.map((c) => columnHeight(c));
 
   // vertical sides on each boundary; height = max of the adjacent columns
   for (let b = 0; b < xs.length; b += 1) {
@@ -249,11 +249,16 @@ export function buildAssembly(
     const innerW = xs[ci + 1] - xs[ci] - t;
     const k = col.cells.length;
 
-    // deck centers: k+1 horizontal panels
-    const deckCenters: number[] = [];
-    for (let j = 0; j <= k; j += 1) {
-      const openings = col.cells.slice(0, j).reduce((a, c) => a + cellH(c), 0);
-      deckCenters.push(t / 2 + j * t + openings);
+    // deck centers: k+1 horizontal panels.
+    // Outer decks (bottom / top) sit t/2 from the column edge, so they fit
+    // inside the first/last cell's height.  Intermediate decks land exactly on
+    // the boundary between adjacent cells.
+    const totalH = columnHeight(col);
+    const deckCenters: number[] = [t / 2]; // deck 0 = bottom plate
+    let cumH = 0;
+    for (let j = 1; j <= k; j += 1) {
+      cumH += cellH(col.cells[j - 1]);
+      deckCenters.push(j < k ? cumH : totalH - t / 2); // intermediate or top plate
     }
     deckCenters.forEach((dc, j) => {
       boxes.push({

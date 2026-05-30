@@ -19,7 +19,7 @@ export type CellType =
 export interface StudioCell {
   id: string;
   type: CellType;
-  height: number; // centimeters (clear opening height)
+  height: number; // centimeters (total exterior section height = lateral height for a single-cell column)
   shelfCount?: number; // shelf / multiple
   drawerCount?: number; // drawer
 }
