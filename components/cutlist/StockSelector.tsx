@@ -62,7 +62,7 @@ export function StockSelector({
         </button>
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:gap-2" style={{ marginTop: 10 }}>
         {materialMode === "single" && sheets.length > 0 && (
           <div style={{ flex: 1 }}>
             <label className="block text-xs font-medium text-[#d7dde9] mb-1.5">
