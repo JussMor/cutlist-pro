@@ -32,12 +32,10 @@ export function GridCell({
   const drawerCount = Math.max(1, cell.drawerCount ?? 1);
   const shelfCount = Math.max(1, cell.shelfCount ?? 1);
 
-  // "multiple" grows proportionally but is capped at 200 px (≈ 2.5× the 80 px
-  // base) so very tall modules don't dominate the facade grid.
-  const cellHeightPx =
-    cell.type === "multiple"
-      ? Math.min(200, Math.max(80, Math.round((cell.height / DEFAULT_CELL_HEIGHT) * 80)))
-      : 80;
+  // All cell types grow proportionally. Base: DEFAULT_CELL_HEIGHT (30 cm) = 80 px.
+  // 3 m = 800 px fits in iPhone 13 Pro Max viewport (926 px portrait). Min 40 px
+  // keeps tiny cells readable; DesignPane has overflow-auto so tall columns scroll.
+  const cellHeightPx = Math.max(40, Math.round((cell.height / DEFAULT_CELL_HEIGHT) * 80));
 
   return (
     <button
