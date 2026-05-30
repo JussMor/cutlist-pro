@@ -48,7 +48,10 @@ export function PanelMesh({
       onPointerLeave={onLongPress ? cancelTimer : undefined}
     >
       <boxGeometry args={box.size} />
+      {/* key forces material recreation when transparent toggles — Three.js
+          requires needsUpdate for that property; this is the R3F idiom. */}
       <meshStandardMaterial
+        key={isGhosted ? "g" : "s"}
         color={color}
         transparent={isGhosted}
         opacity={isGhosted ? 0.18 : 1}

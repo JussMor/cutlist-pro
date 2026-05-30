@@ -47,12 +47,15 @@ export interface ManualPanel {
   banding: { top: boolean; bottom: boolean; left: boolean; right: boolean };
 }
 
+export type BandingMap = Record<string, { top: boolean; bottom: boolean; left: boolean; right: boolean }>;
+
 export interface StudioDocument {
   id: string;
   title: string;
   columns: StudioColumn[];
   globals: StudioGlobals;
   manualPanels: ManualPanel[];
+  bandingOverrides?: BandingMap; // keyed by StudioPanel.key — user overrides for auto panels
   createdAt: number;
   updatedAt: number;
 }
@@ -61,7 +64,7 @@ export const DEFAULT_COLUMN_WIDTH = 45;
 export const DEFAULT_CELL_HEIGHT = 30;
 export const DEFAULT_GLOBALS: StudioGlobals = {
   depth: 45,
-  thickness: 18,
+  thickness: 15,
   overhang: 0,
 };
 
@@ -198,6 +201,14 @@ export function updateManualPanel(
     p.id === id ? { ...p, ...patch } : p,
   );
   return touch({ ...doc, manualPanels });
+}
+
+export function updateBandingOverride(
+  doc: StudioDocument,
+  panelKey: string,
+  banding: { top: boolean; bottom: boolean; left: boolean; right: boolean },
+): StudioDocument {
+  return touch({ ...doc, bandingOverrides: { ...(doc.bandingOverrides ?? {}), [panelKey]: banding } });
 }
 
 export function deleteManualPanel(doc: StudioDocument, id: string): StudioDocument {
