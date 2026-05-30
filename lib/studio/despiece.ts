@@ -155,12 +155,22 @@ function groupOps(ops: StudioOperation[]): StudioOperation[] {
   return Array.from(map.values());
 }
 
-export function computeDespiece(
-  doc: StudioDocument,
-  excludeBoxIds?: Set<string>,
-): DespieceResult {
+export function computeDespiece(doc: StudioDocument): DespieceResult {
+  // Respect hidden back panels stored in doc.globals — same source of truth as
+  // the 3D viewer's expanded mode. Build the exclusion set here so callers
+  // don't need to replicate the col/cell → box-id mapping.
+  const hidden = new Set(doc.globals.hiddenBackPanels ?? []);
+  const excludeIds = new Set<string>();
+  if (hidden.size > 0) {
+    doc.columns.forEach((col, ci) => {
+      col.cells.forEach((cell, idx) => {
+        if (hidden.has(`${col.id}/${cell.id}`)) excludeIds.add(`back-${ci}-${idx}`);
+      });
+    });
+  }
+
   const raw = buildAssembly(doc);
-  const boxes = excludeBoxIds?.size ? raw.filter((b) => !excludeBoxIds.has(b.id)) : raw;
+  const boxes = excludeIds.size > 0 ? raw.filter((b) => !excludeIds.has(b.id)) : raw;
 
   // group identical raw panels (deterministic by first-seen order)
   const groups = new Map<string, StudioPanel>();
