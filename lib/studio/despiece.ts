@@ -155,8 +155,12 @@ function groupOps(ops: StudioOperation[]): StudioOperation[] {
   return Array.from(map.values());
 }
 
-export function computeDespiece(doc: StudioDocument): DespieceResult {
-  const boxes = buildAssembly(doc);
+export function computeDespiece(
+  doc: StudioDocument,
+  excludeBoxIds?: Set<string>,
+): DespieceResult {
+  const raw = buildAssembly(doc);
+  const boxes = excludeBoxIds?.size ? raw.filter((b) => !excludeBoxIds.has(b.id)) : raw;
 
   // group identical raw panels (deterministic by first-seen order)
   const groups = new Map<string, StudioPanel>();

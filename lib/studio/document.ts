@@ -34,7 +34,7 @@ export interface StudioGlobals {
   depth: number; // centimeters
   thickness: number; // mm
   overhang: number; // mm
-  includeBackPanel?: boolean; // false = exclude fondos from cutlist
+  hiddenBackPanels?: string[]; // "${columnId}/${cellId}" keys for hidden fondos
 }
 
 export interface ManualPanel {
