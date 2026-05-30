@@ -32,10 +32,10 @@ export function GridCell({
   const drawerCount = Math.max(1, cell.drawerCount ?? 1);
   const shelfCount = Math.max(1, cell.shelfCount ?? 1);
 
-  // All cell types grow proportionally. Base: DEFAULT_CELL_HEIGHT (30 cm) = 80 px.
-  // 3 m = 800 px fits in iPhone 13 Pro Max viewport (926 px portrait). Min 40 px
-  // keeps tiny cells readable; DesignPane has overflow-auto so tall columns scroll.
-  const cellHeightPx = Math.max(40, Math.round((cell.height / DEFAULT_CELL_HEIGHT) * 80));
+  // All cell types grow proportionally. Base: DEFAULT_CELL_HEIGHT (30 cm) = 40 px.
+  // 3 m = 400 px — fits on iPhone 13 Pro Max (926 px portrait) with room for UI.
+  // Min 20 px keeps tiny cells clickable; DesignPane has overflow-auto for scroll.
+  const cellHeightPx = Math.max(20, Math.round((cell.height / DEFAULT_CELL_HEIGHT) * 40));
 
   return (
     <button
