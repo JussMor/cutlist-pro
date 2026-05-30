@@ -41,6 +41,7 @@ function doc(title: string, columns: StudioColumn[]): StudioDocument {
     title,
     columns,
     globals: { ...DEFAULT_GLOBALS },
+    manualPanels: [],
     createdAt: now,
     updatedAt: now,
   };

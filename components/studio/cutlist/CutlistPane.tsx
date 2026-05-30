@@ -16,9 +16,10 @@ import type {
 } from "@/lib/domain/types";
 import { computeDespiece } from "@/lib/studio/despiece";
 import type { StudioPanel } from "@/lib/studio/despiece";
+import type { ManualPanel } from "@/lib/studio/document";
 import { usePricingStore } from "@/store/pricingStore";
 import { useStudioStore } from "@/store/studioStore";
-import { RefreshCw, Scissors } from "lucide-react";
+import { Plus, RefreshCw, Scissors, Trash2 } from "lucide-react";
 
 const roleLabels: Record<StudioPanel["role"], string> = {
   "back-panel": "Fondo",
@@ -82,6 +83,20 @@ function toOptimizerPanel(
   };
 }
 
+function manualToOptimizerPanel(panel: ManualPanel, stockSheetId: number | null): Panel {
+  return {
+    id: `manual-${panel.id}`,
+    label: panel.label || "Pieza manual",
+    role: "shelf",
+    qty: panel.qty,
+    L: panel.L,
+    W: panel.W,
+    banding: panel.banding,
+    stockSheetId,
+    grainDirection: "none",
+  };
+}
+
 function BandingIndicator({ banding }: { banding: Panel["banding"] }) {
   const on = "#f4b450";
   const off = "#2a3040";
@@ -92,6 +107,34 @@ function BandingIndicator({ banding }: { banding: Panel["banding"] }) {
       <line x1="3" y1="3" x2="3" y2="19" stroke={banding.left ? on : off} strokeWidth={banding.left ? 3 : 1.5} strokeLinecap="round" />
       <line x1="25" y1="3" x2="25" y2="19" stroke={banding.right ? on : off} strokeWidth={banding.right ? 3 : 1.5} strokeLinecap="round" />
     </svg>
+  );
+}
+
+function BandingToggle({
+  banding,
+  onChange,
+}: {
+  banding: ManualPanel["banding"];
+  onChange: (b: ManualPanel["banding"]) => void;
+}) {
+  const on = "#f4b450";
+  const off = "#2a3040";
+  const toggle = (edge: keyof ManualPanel["banding"]) =>
+    onChange({ ...banding, [edge]: !banding[edge] });
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <button type="button" onClick={() => toggle("top")} title="Canto superior"
+        className="h-2 w-6 rounded-sm transition" style={{ background: banding.top ? on : off }} />
+      <div className="flex gap-0.5">
+        <button type="button" onClick={() => toggle("left")} title="Canto izquierdo"
+          className="h-4 w-2 rounded-sm transition" style={{ background: banding.left ? on : off }} />
+        <div className="h-4 w-4 rounded-sm bg-[#1a2230]" />
+        <button type="button" onClick={() => toggle("right")} title="Canto derecho"
+          className="h-4 w-2 rounded-sm transition" style={{ background: banding.right ? on : off }} />
+      </div>
+      <button type="button" onClick={() => toggle("bottom")} title="Canto inferior"
+        className="h-2 w-6 rounded-sm transition" style={{ background: banding.bottom ? on : off }} />
+    </div>
   );
 }
 
@@ -113,8 +156,13 @@ function drawerCollectionIndex(panel: StudioPanel) {
 
 export function CutlistPane() {
   const doc = useStudioStore((s) => s.doc);
+  const addManualPanel = useStudioStore((s) => s.addManualPanel);
+  const updateManualPanel = useStudioStore((s) => s.updateManualPanel);
+  const deleteManualPanel = useStudioStore((s) => s.deleteManualPanel);
+  const save = useStudioStore((s) => s.save);
   const pricing = usePricingStore((s) => s.pricing);
   const { panels } = useMemo(() => computeDespiece(doc), [doc]);
+  const manualPanels = doc.manualPanels ?? [];
   const [sheets, setSheets] = useState<StockSheet[]>([]);
   const [selectedSheetIds, setSelectedSheetIds] = useState<number[]>([]);
   const [primarySheetId, setPrimarySheetId] = useState<number | null>(null);
@@ -151,17 +199,23 @@ export function CutlistPane() {
       .map(applyDims);
   }, [globalDims, materialMode, primarySheetId, selectedSheetIds, sheets]);
 
-  const optimizerPanels = useMemo(
-    () =>
-      panels.map((panel) => {
-        const sheetId =
-          materialMode === "single"
-            ? primarySheetId
-            : (panelSheets[panelId(panel)] ?? null);
-        return toOptimizerPanel(panel, sheetId);
-      }),
-    [materialMode, panelSheets, panels, primarySheetId],
-  );
+  const optimizerPanels = useMemo(() => {
+    const auto = panels.map((panel) => {
+      const sheetId =
+        materialMode === "single"
+          ? primarySheetId
+          : (panelSheets[panelId(panel)] ?? null);
+      return toOptimizerPanel(panel, sheetId);
+    });
+    const manual = manualPanels.map((mp) => {
+      const sheetId =
+        materialMode === "single"
+          ? primarySheetId
+          : (panelSheets[`manual-${mp.id}`] ?? null);
+      return manualToOptimizerPanel(mp, sheetId);
+    });
+    return [...auto, ...manual];
+  }, [materialMode, manualPanels, panelSheets, panels, primarySheetId]);
 
   const structuralPanels = useMemo(
     () => panels.filter((panel) => !isDrawerPanel(panel)),
@@ -266,6 +320,128 @@ export function CutlistPane() {
       new Set(panelIds.map((id) => panelSheets[id] ?? null)),
     );
     return values.length === 1 ? values[0] : "mixed";
+  }
+
+  function handleAddManualPanel() {
+    addManualPanel({
+      label: "Pieza extra",
+      L: 60,
+      W: 30,
+      thickness: Number((doc.globals.thickness / 10).toFixed(1)),
+      qty: 1,
+      banding: { top: false, bottom: false, left: false, right: false },
+    });
+    void save();
+  }
+
+  function handleUpdateManualPanel(id: string, patch: Partial<Omit<ManualPanel, "id">>) {
+    updateManualPanel(id, patch);
+    void save();
+  }
+
+  function handleDeleteManualPanel(id: string) {
+    deleteManualPanel(id);
+    void save();
+  }
+
+  function renderManualPanelRow(mp: ManualPanel) {
+    const sheetId = materialMode === "single" ? primarySheetId : (panelSheets[`manual-${mp.id}`] ?? null);
+    return (
+      <tr key={mp.id} className="border-t border-[#1c2330] bg-[#0d1520]">
+        <td className="px-3 py-2">
+          <div className="flex items-center gap-2">
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[#2a3a55] text-[10px] font-bold text-[#9aa4b6]">M</span>
+            <input
+              className="table-input w-32"
+              value={mp.label}
+              onChange={(e) => handleUpdateManualPanel(mp.id, { label: e.target.value })}
+            />
+          </div>
+        </td>
+        <td className="px-3 py-2">
+          <input type="number" className="table-input w-20" value={mp.L} min={1} step={0.1}
+            onChange={(e) => handleUpdateManualPanel(mp.id, { L: Number(e.target.value) })} />
+        </td>
+        <td className="px-3 py-2">
+          <input type="number" className="table-input w-20" value={mp.W} min={1} step={0.1}
+            onChange={(e) => handleUpdateManualPanel(mp.id, { W: Number(e.target.value) })} />
+        </td>
+        <td className="px-3 py-2">
+          <input type="number" className="table-input w-16" value={mp.thickness} min={0.1} step={0.1}
+            onChange={(e) => handleUpdateManualPanel(mp.id, { thickness: Number(e.target.value) })} />
+        </td>
+        <td className="px-3 py-2">
+          <input type="number" className="table-input w-14" value={mp.qty} min={1} step={1}
+            onChange={(e) => handleUpdateManualPanel(mp.id, { qty: Math.max(1, Number(e.target.value)) })} />
+        </td>
+        <td className="px-3 py-2">
+          <BandingToggle banding={mp.banding}
+            onChange={(b) => handleUpdateManualPanel(mp.id, { banding: b })} />
+        </td>
+        <td className="px-3 py-2">
+          <div className="flex items-center gap-2">
+            {materialMode === "single" ? (
+              <span className="block max-w-44 truncate text-[#9aa4b6]">{selectedSheetName(sheetId)}</span>
+            ) : (
+              <select className="table-input min-w-36" value={sheetId ?? ""}
+                onChange={(e) => changePanelSheet(`manual-${mp.id}`, e.target.value ? Number(e.target.value) : null)}>
+                <option value="">Auto</option>
+                {assignableSheets.map((s) => (
+                  <option key={s.odooId} value={s.odooId}>{s.name}</option>
+                ))}
+              </select>
+            )}
+            <button type="button" onClick={() => handleDeleteManualPanel(mp.id)}
+              className="shrink-0 text-[#6b7a93] hover:text-[#f87171] transition">
+              <Trash2 className="size-3.5" />
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
+  function renderManualPanelCard(mp: ManualPanel) {
+    return (
+      <div key={mp.id} className="border-t border-[#1c2330] bg-[#0d1520] py-3">
+        <div className="flex items-center gap-2 px-1">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#2a3a55] text-[10px] font-bold text-[#9aa4b6]">M</span>
+          <input className="table-input flex-1 text-sm" value={mp.label}
+            onChange={(e) => handleUpdateManualPanel(mp.id, { label: e.target.value })} />
+          <button type="button" onClick={() => handleDeleteManualPanel(mp.id)}
+            className="text-[#6b7a93] hover:text-[#f87171] transition">
+            <Trash2 className="size-4" />
+          </button>
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-3 px-1">
+          <label className="grid gap-0.5 text-xs text-[#7d879a]">
+            L (cm)
+            <input type="number" className="table-input w-20" value={mp.L} min={1} step={0.1}
+              onChange={(e) => handleUpdateManualPanel(mp.id, { L: Number(e.target.value) })} />
+          </label>
+          <label className="grid gap-0.5 text-xs text-[#7d879a]">
+            W (cm)
+            <input type="number" className="table-input w-20" value={mp.W} min={1} step={0.1}
+              onChange={(e) => handleUpdateManualPanel(mp.id, { W: Number(e.target.value) })} />
+          </label>
+          <label className="grid gap-0.5 text-xs text-[#7d879a]">
+            Esp (cm)
+            <input type="number" className="table-input w-16" value={mp.thickness} min={0.1} step={0.1}
+              onChange={(e) => handleUpdateManualPanel(mp.id, { thickness: Number(e.target.value) })} />
+          </label>
+          <label className="grid gap-0.5 text-xs text-[#7d879a]">
+            Cant.
+            <input type="number" className="table-input w-14" value={mp.qty} min={1} step={1}
+              onChange={(e) => handleUpdateManualPanel(mp.id, { qty: Math.max(1, Number(e.target.value)) })} />
+          </label>
+          <div className="grid gap-0.5 text-xs text-[#7d879a]">
+            Canto
+            <BandingToggle banding={mp.banding}
+              onChange={(b) => handleUpdateManualPanel(mp.id, { banding: b })} />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   function renderPanelRow(panel: StudioPanel) {
@@ -521,6 +697,14 @@ export function CutlistPane() {
                 </div>
               );
             })}
+            {manualPanels.map(renderManualPanelCard)}
+            <div className="border-t border-[#1c2330] py-3">
+              <button type="button" onClick={handleAddManualPanel}
+                className="flex items-center gap-2 text-xs text-[#6b7a93] hover:text-[#9aa4b6] transition">
+                <Plus className="size-4" />
+                Agregar pieza manual
+              </button>
+            </div>
           </div>
 
           {/* Desktop table (≥ md) */}
@@ -604,6 +788,16 @@ export function CutlistPane() {
                     </Fragment>
                   );
                 })}
+                {manualPanels.map(renderManualPanelRow)}
+                <tr className="border-t border-[#1c2330]">
+                  <td colSpan={7} className="px-3 py-2">
+                    <button type="button" onClick={handleAddManualPanel}
+                      className="flex items-center gap-2 text-xs text-[#6b7a93] hover:text-[#9aa4b6] transition">
+                      <Plus className="size-3.5" />
+                      Agregar pieza manual
+                    </button>
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>

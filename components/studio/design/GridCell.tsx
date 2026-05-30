@@ -1,6 +1,6 @@
 "use client";
 
-import type { StudioCell } from "@/lib/studio/document";
+import { DEFAULT_CELL_HEIGHT, type StudioCell } from "@/lib/studio/document";
 import { cn } from "@/lib/utils";
 import type { ColorMode } from "@/store/studioStore";
 
@@ -32,6 +32,13 @@ export function GridCell({
   const drawerCount = Math.max(1, cell.drawerCount ?? 1);
   const shelfCount = Math.max(1, cell.shelfCount ?? 1);
 
+  // "multiple" grows proportionally to its height relative to the default cell
+  // height (30 cm = 80 px). All other types stay at the fixed 80 px baseline.
+  const cellHeightPx =
+    cell.type === "multiple"
+      ? Math.max(80, Math.round((cell.height / DEFAULT_CELL_HEIGHT) * 80))
+      : 80;
+
   return (
     <button
       type="button"
@@ -39,8 +46,9 @@ export function GridCell({
         e.stopPropagation();
         onSelect(cell.id, e.shiftKey || e.metaKey || e.ctrlKey);
       }}
+      style={{ height: cellHeightPx }}
       className={cn(
-        "relative h-20 w-20 border bg-[#12100f] transition-all",
+        "relative w-20 border bg-[#12100f] transition-all",
         selected
           ? "z-10 border-[#f4b450] ring-2 ring-[#f4b450]/70"
           : "border-[#5b5a58] hover:border-[#8d8985]",
