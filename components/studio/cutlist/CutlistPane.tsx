@@ -161,19 +161,7 @@ export function CutlistPane() {
   const deleteManualPanel = useStudioStore((s) => s.deleteManualPanel);
   const save = useStudioStore((s) => s.save);
   const pricing = usePricingStore((s) => s.pricing);
-  const hiddenBoxIds = useMemo(() => {
-    const hidden = doc.globals.hiddenBackPanels ?? [];
-    if (hidden.length === 0) return new Set<string>();
-    const hiddenSet = new Set(hidden);
-    const ids = new Set<string>();
-    doc.columns.forEach((col, ci) => {
-      col.cells.forEach((cell, idx) => {
-        if (hiddenSet.has(`${col.id}/${cell.id}`)) ids.add(`back-${ci}-${idx}`);
-      });
-    });
-    return ids;
-  }, [doc]);
-  const { panels } = useMemo(() => computeDespiece(doc, hiddenBoxIds), [doc, hiddenBoxIds]);
+  const { panels } = useMemo(() => computeDespiece(doc), [doc]);
   const manualPanels = doc.manualPanels ?? [];
   const [sheets, setSheets] = useState<StockSheet[]>([]);
   const [selectedSheetIds, setSelectedSheetIds] = useState<number[]>([]);
