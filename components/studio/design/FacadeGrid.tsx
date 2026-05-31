@@ -1,6 +1,6 @@
 "use client";
 
-import { Link, Unlink } from "lucide-react";
+import { ArrowUpDown, Link, Unlink } from "lucide-react";
 
 import { cellFront, DEFAULT_CELL_HEIGHT, MAX_MODULE_HEIGHT_CM } from "@/lib/studio/document";
 import type { StudioCell, StudioColumn } from "@/lib/studio/document";
@@ -12,7 +12,6 @@ import { GridCell } from "./GridCell";
 
 const LETTERS = "ABCDEFGHIJ";
 
-// Height in px for a cell of the given height in cm
 const cellPx = (h: number) => Math.max(20, Math.round((h / DEFAULT_CELL_HEIGHT) * 40));
 
 function moduleCount(col: StudioColumn): number {
@@ -29,13 +28,8 @@ function moduleCount(col: StudioColumn): number {
 }
 
 /**
- * Computes the pixel y-position (from the TOP of the cell stack) of the bottom
- * edge of each cell, ordered bottom-to-top (cells[0] is at the bottom).
+ * Pixel offsets from the TOP of the cell stack for each cell (bottom→top order).
  * Used to position spanning-front overlays.
- *
- * In flex-col-reverse the stack grows upward, so cells[0] is at the visual
- * bottom. We compute cumulative heights from the bottom and convert to
- * "from-top" values by subtracting from the total stack height.
  */
 function computeCellTopOffsets(cells: StudioCell[]): { topPx: number; heightPx: number }[] {
   const heights = cells.map((c) => cellPx(c.height));
@@ -59,6 +53,7 @@ export function FacadeGrid() {
   const clearSelection = useStudioStore((s) => s.clearSelection);
   const toggleMergedDeck = useStudioStore((s) => s.toggleMergedDeck);
   const toggleOpenJoint = useStudioStore((s) => s.toggleOpenJoint);
+  const toggleSpanningFront = useStudioStore((s) => s.toggleSpanningFront);
 
   const selSet = new Set(selection);
   const spanningFronts = doc.globals.spanningFronts ?? [];
@@ -93,9 +88,7 @@ export function FacadeGrid() {
         const isLast = ci === doc.columns.length - 1;
         const nextCol = doc.columns[ci + 1];
 
-        // ── Spanning front pairs for this column ──────────────────────────
-        // Build a set of cellIds whose individual door should be hidden (part of a span)
-        // and a map from bottomCellId -> topCellId for overlay rendering.
+        // ── Spanning front state for this column ──────────────────────────
         const spanHideSet = new Set<string>();
         const spanOverlays: { bottomIdx: number; topIdx: number; front: string }[] = [];
         for (const key of spanningFronts) {
@@ -115,15 +108,16 @@ export function FacadeGrid() {
           });
         }
 
-        // ── Merge button state for right boundary ─────────────────────────
+        // ── Adjacent-column controls ──────────────────────────────────────
+        const jointKey = nextCol ? `${col.id}:${nextCol.id}` : null;
+        const isGrouped = jointKey ? openJoints.includes(jointKey) : false;
+
+        // Manual floor-deck merge (only show when columns are NOT grouped;
+        // grouping auto-spans floor + ceiling)
         const floorMergeKey = nextCol ? `${col.id}:${nextCol.id}/0/0` : null;
         const isFloorMerged = floorMergeKey ? mergedDecks.includes(floorMergeKey) : false;
 
-        // ── Open joint state for right boundary ───────────────────────────
-        const jointKey = nextCol ? `${col.id}:${nextCol.id}` : null;
-        const isJoined = jointKey ? openJoints.includes(jointKey) : false;
-
-        // Pixel offsets for each cell (for spanning-front overlay positioning)
+        // Pixel offsets for spanning-front overlay
         const cellOffsets = computeCellTopOffsets(col.cells);
 
         return (
@@ -140,6 +134,7 @@ export function FacadeGrid() {
                 let cumH = 0;
                 let mi = 0;
                 col.cells.forEach((cell, idx) => {
+                  // Module separator
                   if (idx > 0 && cumH + cell.height > MAX_MODULE_HEIGHT_CM) {
                     mi++;
                     cumH = 0;
@@ -156,6 +151,43 @@ export function FacadeGrid() {
                     );
                   }
                   cumH += cell.height;
+
+                  // Span-door button between this cell and the next (mobile-friendly)
+                  // Placed BEFORE the cell so in flex-col-reverse it renders ABOVE it
+                  if (idx < col.cells.length - 1) {
+                    const nextCell = col.cells[idx + 1];
+                    const spanKey = `${col.id}/${cell.id}/${nextCell.id}`;
+                    const isSpanned = spanningFronts.includes(spanKey);
+                    elements.push(
+                      <button
+                        key={`span-btn-${idx}`}
+                        type="button"
+                        title={isSpanned ? "Quitar puerta compartida" : "Crear puerta compartida entre estas dos secciones"}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleSpanningFront(col.id, cell.id, nextCell.id);
+                        }}
+                        className={cn(
+                          "relative z-10 -my-px flex h-3 w-full items-center justify-center transition-all",
+                          isSpanned
+                            ? "opacity-100"
+                            : "opacity-0 hover:opacity-100 focus:opacity-100",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "flex h-3.5 w-8 items-center justify-center rounded-full border text-[7px] transition-all",
+                            isSpanned
+                              ? "border-[#f4b450] bg-[#f4b450]/20 text-[#f4b450]"
+                              : "border-[#3a4250] bg-[#0d1117] text-[#5a6575]",
+                          )}
+                        >
+                          <ArrowUpDown className="size-2" />
+                        </span>
+                      </button>,
+                    );
+                  }
+
                   elements.push(
                     <GridCell
                       key={cell.id}
@@ -175,20 +207,22 @@ export function FacadeGrid() {
                 const bOff = cellOffsets[bottomIdx];
                 const tOff = cellOffsets[topIdx];
                 if (!bOff || !tOff) return null;
-                // Overlay spans from topIdx's top to bottomIdx's bottom
                 const overTop = Math.min(bOff.topPx, tOff.topPx);
                 const overH = bOff.heightPx + tOff.heightPx;
-                const pal = colorMode === "colored"
-                  ? { front: "#f4b450", knob: "#151312" }
-                  : { front: "#d7d2c8", knob: "#2a2723" };
+                const pal =
+                  colorMode === "colored"
+                    ? { front: "#f4b450", knob: "#151312" }
+                    : { front: "#d7d2c8", knob: "#2a2723" };
                 return (
                   <div
                     key={`span-${bottomIdx}-${topIdx}`}
                     className="pointer-events-none absolute inset-x-0"
                     style={{ top: overTop, height: overH }}
                   >
-                    {/* Render the spanning door leaf */}
-                    {(front === "left" || front === "right" || front === "double" || front === "flip-up") && (
+                    {(front === "left" ||
+                      front === "right" ||
+                      front === "double" ||
+                      front === "flip-up") && (
                       <div
                         className={cn(
                           "absolute inset-2 rounded-[1px]",
@@ -198,7 +232,6 @@ export function FacadeGrid() {
                         )}
                         style={{ background: pal.front, opacity: 0.9 }}
                       >
-                        {/* knob */}
                         {front === "left" && (
                           <span
                             className="absolute right-2 top-1/2 size-1.5 -translate-y-1/2 rounded-full"
@@ -249,7 +282,7 @@ export function FacadeGrid() {
               })}
             </div>
 
-            {/* ── Column footer labels ── */}
+            {/* ── Column footer ── */}
             <div className="flex flex-col items-center gap-1">
               <span className="flex size-6 items-center justify-center rounded-full bg-[#1a2230] text-[10px] font-semibold text-[#9aa4b6]">
                 {LETTERS[ci] ?? ci + 1}
@@ -264,43 +297,54 @@ export function FacadeGrid() {
               </span>
             </div>
 
-            {/* ── Right-boundary controls (merge deck + open joint) ── */}
+            {/* ── Right-boundary controls ── */}
             {!isLast && nextCol && (
               <div className="absolute -right-5 bottom-6 flex flex-col gap-1">
-                {/* Merge floor deck button */}
+                {/* Group / single body button — main action */}
                 <button
                   type="button"
-                  title={isFloorMerged ? "Separar tablero de piso" : "Unir tablero de piso"}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleMergedDeck(col.id, nextCol.id, 0, 0);
-                  }}
-                  className={cn(
-                    "flex size-5 items-center justify-center rounded-full border text-[9px] transition-all",
-                    isFloorMerged
-                      ? "border-[#5a9a8e] bg-[#5a9a8e]/25 text-[#5a9a8e]"
-                      : "border-[#1a2230] text-[#2a3450] hover:border-[#5a9a8e]/60 hover:text-[#5a9a8e]/80",
-                  )}
-                >
-                  ═
-                </button>
-                {/* Open joint / group button */}
-                <button
-                  type="button"
-                  title={isJoined ? "Restaurar panel separador" : "Quitar panel separador entre columnas"}
+                  title={
+                    isGrouped
+                      ? "Desagrupar columnas — restaurar panel separador"
+                      : "Agrupar en un solo cuerpo — quita el panel separador y une piso y techo"
+                  }
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleOpenJoint(col.id, nextCol.id);
                   }}
                   className={cn(
-                    "flex size-5 items-center justify-center rounded-full border transition-all",
-                    isJoined
-                      ? "border-[#f4b450] bg-[#f4b450]/20 text-[#f4b450]"
+                    "flex size-6 items-center justify-center rounded-full border transition-all",
+                    isGrouped
+                      ? "border-[#f4b450] bg-[#f4b450]/25 text-[#f4b450]"
                       : "border-[#1a2230] text-[#2a3450] hover:border-[#f4b450]/50 hover:text-[#f4b450]/70",
                   )}
                 >
-                  {isJoined ? <Unlink className="size-2.5" /> : <Link className="size-2.5" />}
+                  {isGrouped ? (
+                    <Unlink className="size-3" />
+                  ) : (
+                    <Link className="size-3" />
+                  )}
                 </button>
+
+                {/* Manual floor-deck merge — only shown when NOT grouped */}
+                {!isGrouped && (
+                  <button
+                    type="button"
+                    title={isFloorMerged ? "Separar tablero de piso" : "Unir tablero de piso"}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleMergedDeck(col.id, nextCol.id, 0, 0);
+                    }}
+                    className={cn(
+                      "flex size-6 items-center justify-center rounded-full border text-[9px] font-bold transition-all",
+                      isFloorMerged
+                        ? "border-[#5a9a8e] bg-[#5a9a8e]/25 text-[#5a9a8e]"
+                        : "border-[#1a2230] text-[#2a3450] hover:border-[#5a9a8e]/60 hover:text-[#5a9a8e]/80",
+                    )}
+                  >
+                    ═
+                  </button>
+                )}
               </div>
             )}
           </div>

@@ -419,13 +419,8 @@ export function buildAssembly(
     if (ciL == null || ciR == null || ciR !== ciL + 1) continue;
     hMerges.push({ ciL, ciR, mi: Number(m[3]), j: Number(m[4]) });
   }
-  const skipDeck = new Set<string>();
-  for (const hm of hMerges) {
-    skipDeck.add(`${hm.ciL}/${hm.mi}/${hm.j}`);
-    skipDeck.add(`${hm.ciR}/${hm.mi}/${hm.j}`);
-  }
-
-  // ── Open joints: boundaries where the intermediate side panel is removed ──
+  // ── Open joints: boundaries where the intermediate side panel is removed,
+  //    and floor + ceiling decks are automatically spanned into one wide panel.
   // Key format: "${leftColId}:${rightColId}"
   const openJointBoundaries = new Set<number>();
   for (const key of doc.globals.openJoints ?? []) {
@@ -433,9 +428,41 @@ export function buildAssembly(
     if (sep < 0) continue;
     const ciL = colIdToIdx.get(key.slice(0, sep));
     const ciR = colIdToIdx.get(key.slice(sep + 1));
-    if (ciL != null && ciR != null && ciR === ciL + 1) {
-      openJointBoundaries.add(ciL + 1); // boundary index between ciL and ciR
+    if (ciL == null || ciR == null || ciR !== ciL + 1) continue;
+    openJointBoundaries.add(ciL + 1);
+
+    // For each shared module, auto-span the floor (j=0) and ceiling (j=k) decks.
+    // This is what makes two columns into a true single body — shared structural panels.
+    // Max module height constraint is preserved: each module gets its own spanning panels.
+    const maxMi = Math.max(columnModules[ciL]?.length ?? 0, columnModules[ciR]?.length ?? 0);
+    for (let mi = 0; mi < maxMi; mi++) {
+      const modL = columnModules[ciL]?.[mi];
+      const modR = columnModules[ciR]?.[mi];
+      if (!modL && !modR) continue;
+
+      // Floor deck (j=0): always present in every module
+      const floorAlreadyMerged = hMerges.some(
+        (hm) => hm.ciL === ciL && hm.ciR === ciR && hm.mi === mi && hm.j === 0,
+      );
+      if (!floorAlreadyMerged) hMerges.push({ ciL, ciR, mi, j: 0 });
+
+      // Ceiling deck: j = cell count of whichever module exists (they should match
+      // for a well-formed grouped cabinet; if they differ, use the left column's count)
+      const kCeil = modL?.cells.length ?? modR?.cells.length ?? 0;
+      if (kCeil > 0) {
+        const ceilAlreadyMerged = hMerges.some(
+          (hm) => hm.ciL === ciL && hm.ciR === ciR && hm.mi === mi && hm.j === kCeil,
+        );
+        if (!ceilAlreadyMerged) hMerges.push({ ciL, ciR, mi, j: kCeil });
+      }
     }
+  }
+
+  // Decks that are replaced by a merged spanning panel are skipped in per-column rendering
+  const skipDeck = new Set<string>();
+  for (const hm of hMerges) {
+    skipDeck.add(`${hm.ciL}/${hm.mi}/${hm.j}`);
+    skipDeck.add(`${hm.ciR}/${hm.mi}/${hm.j}`);
   }
 
   // ── Spanning fronts: cells whose individual door is replaced by a joint panel ──
