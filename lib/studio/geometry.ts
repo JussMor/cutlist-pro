@@ -40,13 +40,14 @@ export interface Box3D {
   rotation?: [number, number, number];
   meta?: {
     column?: number;
+    columnRight?: number; // for merged spanning decks: the right-column index
     cell?: number;
     drawer?: number;
     side?: "left" | "right" | "up";
     deckIndex?: number;
     deckCount?: number;
     module?: number; // stacked module index (0 = bottom)
-    merged?: boolean; // true when two junction decks were merged into one 2T panel
+    merged?: boolean; // true when two adjacent-column decks are merged into one spanning panel
   };
 }
 
@@ -336,7 +337,6 @@ export function buildAssembly(
   const t = mm(doc.globals.thickness);
   const D = Math.max(0.05, cm(doc.globals.depth));
   const boxes: Box3D[] = [];
-  const mergedSet = new Set(doc.globals.mergedDecks ?? []);
 
   // cumulative x boundaries (N columns -> N+1 boundaries)
   const xs: number[] = [0];
@@ -349,6 +349,28 @@ export function buildAssembly(
   const maxModules = columnModules.length > 0
     ? Math.max(...columnModules.map((m) => m.length))
     : 0;
+
+  // ── Horizontal deck merges ────────────────────────────────────────────────
+  // Keys format: "${leftColId}:${rightColId}/${mi}/${j}"
+  // A merged pair spans from the left column's outer side to the right column's
+  // outer side, absorbing the intermediate separator into one wider panel.
+  interface HMerge { ciL: number; ciR: number; mi: number; j: number; }
+  const hMerges: HMerge[] = [];
+  const colIdToIdx = new Map(doc.columns.map((c, i) => [c.id, i]));
+  for (const key of doc.globals.mergedDecks ?? []) {
+    const m = key.match(/^([^:]+):([^/]+)\/(\d+)\/(\d+)$/);
+    if (!m) continue;
+    const ciL = colIdToIdx.get(m[1]);
+    const ciR = colIdToIdx.get(m[2]);
+    if (ciL == null || ciR == null || ciR !== ciL + 1) continue;
+    hMerges.push({ ciL, ciR, mi: Number(m[3]), j: Number(m[4]) });
+  }
+  // Decks that are replaced by a merged spanning panel are skipped
+  const skipDeck = new Set<string>();
+  for (const hm of hMerges) {
+    skipDeck.add(`${hm.ciL}/${hm.mi}/${hm.j}`);
+    skipDeck.add(`${hm.ciR}/${hm.mi}/${hm.j}`);
+  }
 
   // Vertical sides: one panel per boundary per module.
   // Height at boundary b for module m = max of adjacent columns' module-m height.
@@ -393,15 +415,9 @@ export function buildAssembly(
         deckCenters.push(j < k ? startY + cumH : startY + totalH - t / 2);
       }
 
-      const topJunctionKey = `${col.id}/${mi}`;
-      const bottomJunctionKey = `${col.id}/${mi - 1}`;
-      const isTopMerged = mi < modules.length - 1 && mergedSet.has(topJunctionKey);
-      const isBottomMerged = mi > 0 && mergedSet.has(bottomJunctionKey);
-
       deckCenters.forEach((dc, j) => {
-        // Skip module-boundary decks that are part of a merged junction
-        if (j === k && isTopMerged) return;
-        if (j === 0 && isBottomMerged) return;
+        // Skip decks absorbed into a horizontal merged spanning panel
+        if (skipDeck.has(`${ci}/${mi}/${j}`)) return;
 
         boxes.push({
           id: `deck-${ci}-m${mi}-${j}`,
@@ -412,22 +428,6 @@ export function buildAssembly(
           meta: { column: ci, deckIndex: j, deckCount: k, module: mi },
         });
       });
-
-      // Single merged panel replacing the top deck of this module + bottom deck of next
-      if (isTopMerged) {
-        const nextMod = modules[mi + 1];
-        const topDeckY = deckCenters[k];         // center of top deck of module mi
-        const botDeckY = nextMod.startY + t / 2; // center of bottom deck of module mi+1
-        const mergedCenterY = (topDeckY + botDeckY) / 2;
-        boxes.push({
-          id: `deck-${ci}-m${mi}-merged`,
-          role: "deck",
-          pos: [cx, mergedCenterY, D / 2],
-          size: [innerW, 2 * t, D],
-          color: ROLE_COLORS.deck,
-          meta: { column: ci, deckIndex: k, deckCount: k, module: mi, merged: true },
-        });
-      }
 
       mod.cells.forEach((cell, localIdx) => {
         const globalIdx = mod.cellOffset + localIdx;
@@ -453,6 +453,38 @@ export function buildAssembly(
       });
     });
   });
+
+  // ── Add spanning panels for each horizontal merge ─────────────────────────
+  for (const { ciL, ciR, mi, j } of hMerges) {
+    const modL = columnModules[ciL]?.[mi];
+    if (!modL) continue;
+    const k = modL.cells.length;
+    const startY = modL.startY;
+    const totalH = modL.height;
+    // Recompute deck centers for the left column's module
+    const dcs: number[] = [startY + t / 2];
+    let cumH = 0;
+    for (let jj = 1; jj <= k; jj++) {
+      cumH += cellH(modL.cells[jj - 1]);
+      dcs.push(jj < k ? startY + cumH : startY + totalH - t / 2);
+    }
+    if (j >= dcs.length) continue;
+    // Span between inner faces of the two outer side panels:
+    //   spanW = (xR - T/2) - (xL + T/2) = xR - xL - T
+    //         = innerW_L + T_separator + innerW_R  (separator absorbed)
+    const xL = xs[ciL];
+    const xR = xs[ciR + 1];
+    const spanW = xR - xL - t;
+    const cxSpan = (xL + xR) / 2;
+    boxes.push({
+      id: `deck-hmerge-${ciL}-${ciR}-m${mi}-j${j}`,
+      role: "deck",
+      pos: [cxSpan, dcs[j], D / 2],
+      size: [spanW, t, D],
+      color: ROLE_COLORS.deck,
+      meta: { column: ciL, columnRight: ciR, deckIndex: j, deckCount: k, module: mi, merged: true },
+    });
+  }
 
   return boxes;
 }

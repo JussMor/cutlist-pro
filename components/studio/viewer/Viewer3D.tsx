@@ -18,30 +18,30 @@ const Scene = dynamic(() => import("./Scene"), {
   ),
 });
 
-/** Two deck panels are merge-compatible when they sit at the junction between
- *  adjacent stacked modules in the same column (lower module's top deck +
- *  upper module's bottom deck). */
+/**
+ * Two deck panels are compatible for a horizontal merge when they belong to
+ * adjacent columns (|ciA - ciB| === 1), the same module index, and the same
+ * deck-index within that module. The merged panel spans both columns plus the
+ * intermediate side-panel thickness.
+ */
 function areMergeCompatible(a: Box3D, b: Box3D): boolean {
   if (a.role !== "deck" || b.role !== "deck") return false;
   if (a.meta?.merged || b.meta?.merged) return false;
 
-  const colA = a.meta?.column;
-  const colB = b.meta?.column;
-  if (colA == null || colB == null || colA !== colB) return false;
+  const ciA = a.meta?.column;
+  const ciB = b.meta?.column;
+  if (ciA == null || ciB == null) return false;
+  if (Math.abs(ciA - ciB) !== 1) return false;
 
-  const modA = a.meta?.module ?? 0;
-  const modB = b.meta?.module ?? 0;
-  if (Math.abs(modA - modB) !== 1) return false;
+  const miA = a.meta?.module ?? 0;
+  const miB = b.meta?.module ?? 0;
+  if (miA !== miB) return false;
 
-  const lower = modA < modB ? a : b;
-  const upper = modA < modB ? b : a;
+  const jA = a.meta?.deckIndex;
+  const jB = b.meta?.deckIndex;
+  if (jA == null || jB == null || jA !== jB) return false;
 
-  const ldi = lower.meta?.deckIndex;
-  const ldc = lower.meta?.deckCount;
-  const udi = upper.meta?.deckIndex;
-
-  if (ldi == null || ldc == null || udi == null) return false;
-  return ldi === ldc && udi === 0;
+  return true;
 }
 
 export function Viewer3D() {
@@ -61,11 +61,12 @@ export function Viewer3D() {
   // ── Merge selection state ──────────────────────────────────────────────────
   const [pickA, setPickA] = useState<Box3D | null>(null);
   const [pendingMerge, setPendingMerge] = useState<{
-    colId: string;
+    leftColId: string;
+    rightColId: string;
     mi: number;
+    j: number;
   } | null>(null);
 
-  // Reset interaction state when leaving expanded mode
   useEffect(() => {
     if (mode !== "expanded") {
       setPickA(null);
@@ -75,16 +76,23 @@ export function Viewer3D() {
 
   const handleDeckClick = useCallback(
     (box: Box3D) => {
-      // Merged deck → immediate unmerge
+      // Merged spanning deck → immediate unmerge
       if (box.meta?.merged) {
-        const colId = doc.columns[box.meta?.column ?? 0]?.id;
-        if (colId) toggleMergedDeck(colId, box.meta?.module ?? 0);
+        const ciL = box.meta?.column;
+        const ciR = box.meta?.columnRight;
+        const mi = box.meta?.module ?? 0;
+        const j = box.meta?.deckIndex ?? 0;
+        if (ciL != null && ciR != null) {
+          const leftColId = doc.columns[ciL]?.id;
+          const rightColId = doc.columns[ciR]?.id;
+          if (leftColId && rightColId) toggleMergedDeck(leftColId, rightColId, mi, j);
+        }
         setPickA(null);
         setPendingMerge(null);
         return;
       }
 
-      // Deselect if same panel clicked again
+      // Deselect same panel
       if (pickA?.id === box.id) {
         setPickA(null);
         setPendingMerge(null);
@@ -98,16 +106,19 @@ export function Viewer3D() {
       }
 
       if (areMergeCompatible(pickA, box)) {
-        const lowerMod = Math.min(
-          pickA.meta?.module ?? 0,
-          box.meta?.module ?? 0,
-        );
-        const colIdx = pickA.meta?.column ?? 0;
-        const colId = doc.columns[colIdx]?.id;
-        if (colId) setPendingMerge({ colId, mi: lowerMod });
+        const ciA = pickA.meta?.column ?? 0;
+        const ciB = box.meta?.column ?? 0;
+        const ciL = Math.min(ciA, ciB);
+        const ciR = Math.max(ciA, ciB);
+        const leftColId = doc.columns[ciL]?.id;
+        const rightColId = doc.columns[ciR]?.id;
+        const mi = pickA.meta?.module ?? 0;
+        const j = pickA.meta?.deckIndex ?? 0;
+        if (leftColId && rightColId) {
+          setPendingMerge({ leftColId, rightColId, mi, j });
+        }
         setPickA(null);
       } else {
-        // Not compatible → replace first pick
         setPickA(box);
         setPendingMerge(null);
       }
@@ -117,7 +128,8 @@ export function Viewer3D() {
 
   const confirmMerge = useCallback(() => {
     if (!pendingMerge) return;
-    toggleMergedDeck(pendingMerge.colId, pendingMerge.mi);
+    const { leftColId, rightColId, mi, j } = pendingMerge;
+    toggleMergedDeck(leftColId, rightColId, mi, j);
     setPendingMerge(null);
   }, [pendingMerge, toggleMergedDeck]);
 
@@ -234,9 +246,7 @@ export function Viewer3D() {
                         onClick={() => toggleBackPanel(item.key)}
                         className={cn(
                           "flex w-full items-center justify-between rounded px-2 py-1.5 text-left transition hover:bg-[#11151d]",
-                          item.isHidden
-                            ? "text-[#5a6575]"
-                            : "text-[#9aa4b6]",
+                          item.isHidden ? "text-[#5a6575]" : "text-[#9aa4b6]",
                         )}
                       >
                         <span className="text-xs">{item.label}</span>
@@ -255,10 +265,14 @@ export function Viewer3D() {
               </PopoverContent>
             </Popover>
 
-            {/* Merge / split hint button */}
+            {/* Merge tool hint / cancel button */}
             <button
               type="button"
-              title="Unir / separar tableros horizontales – selecciona dos tableros adyacentes de módulos apilados"
+              title={
+                pickA
+                  ? "Cancelar selección de unión"
+                  : "Unir tableros – selecciona dos tableros horizontales de columnas adyacentes"
+              }
               className={cn(
                 "flex size-8 items-center justify-center rounded-md bg-black/60 transition",
                 pickA
@@ -274,7 +288,7 @@ export function Viewer3D() {
           {/* ── Selection hint ────────────────────────────────────────────── */}
           {pickA && !pendingMerge && (
             <div className="pointer-events-none absolute left-1/2 top-2 -translate-x-1/2 rounded-md bg-black/70 px-3 py-1.5 text-[11px] text-[#c8d3e8]">
-              Selecciona el segundo tablero para unir
+              Selecciona el tablero adyacente para unir
             </div>
           )}
 
@@ -283,7 +297,7 @@ export function Viewer3D() {
             <div className="pointer-events-auto absolute left-1/2 top-2 -translate-x-1/2 flex items-center gap-2.5 rounded-lg border border-[#2a3a28] bg-[#0d1117] px-3.5 py-2 shadow-xl">
               <GitMerge className="size-4 shrink-0 text-[#5a9a6e]" />
               <span className="text-xs text-[#d7dde9]">
-                ¿Unir estas dos piezas?
+                ¿Unir en un solo tablero más ancho?
               </span>
               <button
                 type="button"
