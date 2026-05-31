@@ -90,15 +90,11 @@ export default function Scene({
   mode,
   colorMode,
   onToggleBackPanel,
-  onDeckClick,
-  selectedBoxIds,
 }: {
   doc: StudioDocument;
   mode: RenderMode;
   colorMode: ColorMode;
   onToggleBackPanel?: (key: string) => void;
-  onDeckClick?: (box: Box3D) => void;
-  selectedBoxIds?: string[];
 }) {
   const hiddenSet = useMemo(
     () => new Set(doc.globals.hiddenBackPanels ?? []),
@@ -133,7 +129,6 @@ export default function Scene({
         {boxes.map((b) => {
           const key = b.role === "back" ? backPanelKey(b, doc) : null;
           const isGhosted = key !== null && hiddenSet.has(key);
-          const isSelected = selectedBoxIds?.includes(b.id) ?? false;
           return (
             <PanelMesh
               key={b.id}
@@ -144,13 +139,7 @@ export default function Scene({
                   ? () => onToggleBackPanel(key)
                   : undefined
               }
-              onClick={
-                b.role === "deck" && mode === "expanded" && onDeckClick
-                  ? () => onDeckClick(b)
-                  : undefined
-              }
               isGhosted={isGhosted}
-              isSelected={isSelected}
             />
           );
         })}

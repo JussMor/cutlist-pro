@@ -12,20 +12,15 @@ export function PanelMesh({
   box,
   colorMode,
   onLongPress,
-  onClick,
   isGhosted,
-  isSelected,
 }: {
   box: Box3D;
   colorMode: ColorMode;
   onLongPress?: () => void;
-  onClick?: () => void;
   isGhosted?: boolean;
-  isSelected?: boolean;
 }) {
   const color = colorMode === "uncolored" ? "#d7d2c8" : box.color;
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const downClientXY = useRef<[number, number] | null>(null);
 
   const cancelTimer = () => {
     if (timer.current !== null) {
@@ -34,48 +29,34 @@ export function PanelMesh({
     }
   };
 
-  const matKey = `${isGhosted ? "g" : "s"}-${isSelected ? "sel" : "ns"}`;
+  const matKey = isGhosted ? "g" : "s";
 
   return (
     <mesh
       position={box.pos}
       rotation={box.rotation ?? [0, 0, 0]}
       onPointerDown={
-        onLongPress || onClick
+        onLongPress
           ? (e) => {
               e.stopPropagation();
-              downClientXY.current = [e.clientX, e.clientY];
-              if (onLongPress) {
-                timer.current = setTimeout(() => {
-                  timer.current = null;
-                  downClientXY.current = null;
-                  onLongPress();
-                }, LONG_PRESS_MS);
-              }
+              timer.current = setTimeout(() => {
+                timer.current = null;
+                onLongPress();
+              }, LONG_PRESS_MS);
             }
           : undefined
       }
       onPointerUp={
-        onLongPress || onClick
-          ? (e) => {
+        onLongPress
+          ? () => {
               cancelTimer();
-              if (onClick && downClientXY.current) {
-                const dx = e.clientX - downClientXY.current[0];
-                const dy = e.clientY - downClientXY.current[1];
-                if (dx * dx + dy * dy < 25) {
-                  e.stopPropagation();
-                  onClick();
-                }
-              }
-              downClientXY.current = null;
             }
           : undefined
       }
       onPointerLeave={
-        onLongPress || onClick
+        onLongPress
           ? () => {
               cancelTimer();
-              downClientXY.current = null;
             }
           : undefined
       }
@@ -89,10 +70,8 @@ export function PanelMesh({
         transparent={isGhosted}
         opacity={isGhosted ? 0.18 : 1}
         depthWrite={!isGhosted}
-        roughness={isSelected ? 0.35 : 0.62}
-        metalness={isSelected ? 0.18 : 0.04}
-        emissive={isSelected ? "#3a7adf" : "#000000"}
-        emissiveIntensity={isSelected ? 0.45 : 0}
+        roughness={0.62}
+        metalness={0.04}
       />
     </mesh>
   );
