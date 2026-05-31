@@ -14,12 +14,15 @@ import type {
   PanelRole,
   StockSheet,
 } from "@/lib/domain/types";
+import { aggregateDespiece, type AggregateEntry } from "@/lib/studio/aggregate";
 import { computeDespiece } from "@/lib/studio/despiece";
 import type { StudioPanel } from "@/lib/studio/despiece";
 import type { ManualPanel } from "@/lib/studio/document";
 import { usePricingStore } from "@/store/pricingStore";
 import { useStudioStore } from "@/store/studioStore";
 import { Plus, RefreshCw, Scissors, Trash2 } from "lucide-react";
+
+import { CombinedProjectsPicker } from "./CombinedProjectsPicker";
 
 const roleLabels: Record<StudioPanel["role"], string> = {
   "back-panel": "Fondo",
@@ -197,6 +200,13 @@ export function CutlistPane() {
   const setPricingField = usePricingStore((s) => s.setPricingField);
   const { panels } = useMemo(() => computeDespiece(doc), [doc]);
   const manualPanels = useMemo(() => doc.manualPanels ?? [], [doc.manualPanels]);
+  // Option B: other furniture documents pulled into this same optimization run.
+  // Ephemeral — selection lives here, not persisted on the document.
+  const [extraEntries, setExtraEntries] = useState<AggregateEntry[]>([]);
+  const extraPanels = useMemo(
+    () => aggregateDespiece(extraEntries).panels,
+    [extraEntries],
+  );
   const [sheets, setSheets] = useState<StockSheet[]>([]);
   const [selectedSheetIds, setSelectedSheetIds] = useState<number[]>([]);
   const [primarySheetId, setPrimarySheetId] = useState<number | null>(null);
@@ -250,8 +260,18 @@ export function CutlistPane() {
           : (panelSheets[`manual-${mp.id}`] ?? null);
       return manualToOptimizerPanel(mp, sheetId);
     });
-    return [...auto, ...manual];
-  }, [materialMode, manualPanels, panelSheets, panels, primarySheetId, bandingOverrides]);
+    // Panels from other furniture documents added to this run. They reuse the
+    // same StudioPanel → optimizer mapping; their keys/badges are already
+    // namespaced per source doc so ids never collide with the current doc.
+    const extra = extraPanels.map((panel) => {
+      const sheetId =
+        materialMode === "single"
+          ? primarySheetId
+          : (panelSheets[panelId(panel)] ?? null);
+      return toOptimizerPanel(panel, sheetId);
+    });
+    return [...auto, ...manual, ...extra];
+  }, [materialMode, manualPanels, panelSheets, panels, extraPanels, primarySheetId, bandingOverrides]);
 
   // Pre-flight: panels that won't fit any selected sheet — shown before the user
   // even clicks "Optimizar" so they can fix the sheet selection first.
@@ -313,7 +333,7 @@ export function CutlistPane() {
 
   useEffect(() => {
     setResult(null);
-  }, [doc, materialMode, primarySheetId, selectedSheetIds, globalDims, panelSheets]);
+  }, [doc, materialMode, primarySheetId, selectedSheetIds, globalDims, panelSheets, extraEntries]);
 
   async function loadSheets(forceRefresh = false) {
     try {
@@ -947,6 +967,11 @@ export function CutlistPane() {
             Vista de planchas, piezas ubicadas y pasos de corte.
           </p>
         </div>
+        <CombinedProjectsPicker
+          currentDocId={doc.id}
+          onChange={setExtraEntries}
+          className="mb-4"
+        />
         <div className="mb-4 rounded-lg border border-[#1c2330] bg-[#0f141e] p-3 text-sm">
           <CostBreakdown breakdown={result?.totalCost} />
         </div>
