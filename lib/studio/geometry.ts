@@ -29,7 +29,10 @@ export type BoxRole =
   | "drawer-back"
   | "drawer-bottom"
   | "drawer-inner-front"
-  | "shelf";
+  | "shelf"
+  | "hanging-rail"   // horizontal clothes rod structural bar
+  | "hanging-bar"    // individual hanging bar (not a cut panel)
+  | "divider-panel"; // vertical divider panel
 
 export interface Box3D {
   id: string;
@@ -107,6 +110,7 @@ interface CellCtx {
   ci: number;
   idx: number;
   state: AssemblyState;
+  skipFront?: boolean; // true when this cell is part of a spanning front pair
 }
 
 function addCellContent(boxes: Box3D[], cell: StudioCell, ctx: CellCtx): void {
@@ -200,13 +204,64 @@ function addCellContent(boxes: Box3D[], cell: StudioCell, ctx: CellCtx): void {
       }
       break;
     }
+    case "hanging": {
+      // Horizontal clothes rail near the top of the compartment
+      const railH = Math.min(t * 1.2, 0.025);
+      const railY = top - railH / 2 - 0.005;
+      boxes.push({
+        id: `hanging-rail-${ci}-${idx}`,
+        role: "hanging-rail",
+        pos: [cx, railY, D / 2],
+        size: [innerW, railH, D * 0.12],
+        color: ROLE_COLORS["hanging-rail"],
+        meta: { column: ci, cell: idx },
+      });
+      // Individual hanging bars below the rail (visual only, not cut panels)
+      const nBars = Math.max(2, Math.round(innerW / 0.15));
+      const barH = (top - bottom) * 0.50;
+      const barY = railY - barH / 2 - railH / 2;
+      for (let h = 0; h < nBars; h++) {
+        const bx = cx - innerW / 2 + (innerW / (nBars + 1)) * (h + 1);
+        boxes.push({
+          id: `hanging-bar-${ci}-${idx}-${h}`,
+          role: "hanging-bar",
+          pos: [bx, barY, D * 0.40],
+          size: [0.008, barH, 0.008],
+          color: ROLE_COLORS["hanging-bar"],
+          meta: { column: ci, cell: idx },
+        });
+      }
+      break;
+    }
+    case "divider": {
+      const n = Math.max(1, cell.dividerCount ?? 1);
+      const divH = Math.max(0.02, ch - t);
+      for (let d = 0; d < n; d++) {
+        const dx = cx - innerW / 2 + (innerW * (d + 1)) / (n + 1);
+        boxes.push({
+          id: `divider-panel-${ci}-${idx}-${d}`,
+          role: "divider-panel",
+          pos: [dx, cyc, D / 2],
+          size: [t, divH, D - t],
+          color: ROLE_COLORS["divider-panel"],
+          meta: { column: ci, cell: idx },
+        });
+      }
+      break;
+    }
+    case "appliance":
+      break; // open space reserved for appliance — no structural panels generated
+
     default:
       break; // "empty" -> open compartment, no interior parts
   }
 
-  // Front doors are independent of the interior: an empty box, a shelf unit or
-  // (rarely) a drawer bank can all carry a door in front.
-  addFront(boxes, front, { cx, innerW, cyc, ch, top, t, ci, idx, gap, state });
+  // Front doors are independent of the interior.
+  // Skip if this cell is part of a spanning front pair — a single tall door is
+  // added for the whole pair after the main loop.
+  if (!ctx.skipFront) {
+    addFront(boxes, front, { cx, innerW, cyc, ch, top, t, ci, idx, gap, state });
+  }
 }
 
 interface FrontCtx {
@@ -217,7 +272,7 @@ interface FrontCtx {
   top: number;
   t: number;
   ci: number;
-  idx: number;
+  idx: number | string; // string used for spanning-front unique IDs
   gap: number;
   state: AssemblyState;
 }
@@ -350,13 +405,12 @@ export function buildAssembly(
     ? Math.max(...columnModules.map((m) => m.length))
     : 0;
 
+  const colIdToIdx = new Map(doc.columns.map((c, i) => [c.id, i]));
+
   // ── Horizontal deck merges ────────────────────────────────────────────────
   // Keys format: "${leftColId}:${rightColId}/${mi}/${j}"
-  // A merged pair spans from the left column's outer side to the right column's
-  // outer side, absorbing the intermediate separator into one wider panel.
   interface HMerge { ciL: number; ciR: number; mi: number; j: number; }
   const hMerges: HMerge[] = [];
-  const colIdToIdx = new Map(doc.columns.map((c, i) => [c.id, i]));
   for (const key of doc.globals.mergedDecks ?? []) {
     const m = key.match(/^([^:]+):([^/]+)\/(\d+)\/(\d+)$/);
     if (!m) continue;
@@ -365,16 +419,44 @@ export function buildAssembly(
     if (ciL == null || ciR == null || ciR !== ciL + 1) continue;
     hMerges.push({ ciL, ciR, mi: Number(m[3]), j: Number(m[4]) });
   }
-  // Decks that are replaced by a merged spanning panel are skipped
   const skipDeck = new Set<string>();
   for (const hm of hMerges) {
     skipDeck.add(`${hm.ciL}/${hm.mi}/${hm.j}`);
     skipDeck.add(`${hm.ciR}/${hm.mi}/${hm.j}`);
   }
 
+  // ── Open joints: boundaries where the intermediate side panel is removed ──
+  // Key format: "${leftColId}:${rightColId}"
+  const openJointBoundaries = new Set<number>();
+  for (const key of doc.globals.openJoints ?? []) {
+    const sep = key.indexOf(":");
+    if (sep < 0) continue;
+    const ciL = colIdToIdx.get(key.slice(0, sep));
+    const ciR = colIdToIdx.get(key.slice(sep + 1));
+    if (ciL != null && ciR != null && ciR === ciL + 1) {
+      openJointBoundaries.add(ciL + 1); // boundary index between ciL and ciR
+    }
+  }
+
+  // ── Spanning fronts: cells whose individual door is replaced by a joint panel ──
+  // Key format: "${colId}/${bottomCellId}/${topCellId}"
+  const spanSkipCells = new Set<string>();
+  for (const key of doc.globals.spanningFronts ?? []) {
+    const parts = key.split("/");
+    if (parts.length === 3) {
+      spanSkipCells.add(parts[1]); // bottomCellId
+      spanSkipCells.add(parts[2]); // topCellId
+    }
+  }
+
+  // Maps cell.id → its computed 3D bounds (filled during the main loop below)
+  const cellBoundsMap = new Map<string, { bottom: number; top: number; cx: number; innerW: number; ci: number }>();
+
   // Vertical sides: one panel per boundary per module.
   // Height at boundary b for module m = max of adjacent columns' module-m height.
   for (let b = 0; b < xs.length; b++) {
+    // Open joint: skip the intermediate separator panel at this boundary
+    if (b > 0 && b < xs.length - 1 && openJointBoundaries.has(b)) continue;
     for (let mi = 0; mi < maxModules; mi++) {
       const leftMod = b > 0 ? columnModules[b - 1][mi] : undefined;
       const rightMod = b < doc.columns.length ? columnModules[b][mi] : undefined;
@@ -444,8 +526,14 @@ export function buildAssembly(
           meta: { column: ci, cell: globalIdx, module: mi },
         });
 
+        // Record cell bounds for spanning front post-processing
+        cellBoundsMap.set(cell.id, { bottom, top, cx, innerW, ci });
+
         const before = boxes.length;
-        addCellContent(boxes, cell, { cx, innerW, bottom, top, D, t, ci, idx: globalIdx, state });
+        addCellContent(boxes, cell, {
+          cx, innerW, bottom, top, D, t, ci, idx: globalIdx, state,
+          skipFront: spanSkipCells.has(cell.id),
+        });
         // Tag newly added content boxes with their module index
         for (let i = before; i < boxes.length; i++) {
           boxes[i] = { ...boxes[i], meta: { ...(boxes[i].meta ?? {}), module: mi } };
@@ -484,6 +572,32 @@ export function buildAssembly(
       color: ROLE_COLORS.deck,
       meta: { column: ciL, columnRight: ciR, deckIndex: j, deckCount: k, module: mi, merged: true },
     });
+  }
+
+  // ── Add spanning door panels for shared fronts ───────────────────────────
+  // Key format: "${colId}/${bottomCellId}/${topCellId}"
+  const gap = 0.003;
+  for (const key of doc.globals.spanningFronts ?? []) {
+    const parts = key.split("/");
+    if (parts.length !== 3) continue;
+    const [colId, bottomCellId, topCellId] = parts;
+    const bBounds = cellBoundsMap.get(bottomCellId);
+    const tBounds = cellBoundsMap.get(topCellId);
+    if (!bBounds || !tBounds || bBounds.ci !== tBounds.ci) continue;
+
+    const { cx, innerW, ci } = bBounds;
+    const combinedBottom = bBounds.bottom;
+    const combinedTop = tBounds.top;
+    const combinedH = combinedTop - combinedBottom;
+    const cyc = (combinedBottom + combinedTop) / 2;
+
+    // Use the bottom cell's front type for the spanning door
+    const col = doc.columns[ci];
+    const bottomCell = col?.cells.find((c) => c.id === bottomCellId);
+    if (!bottomCell) continue;
+    const front = cellFront(bottomCell);
+
+    addFront(boxes, front, { cx, innerW, cyc, ch: combinedH, top: combinedTop, t, ci, idx: `span-${colId}-${bottomCellId}`, gap, state });
   }
 
   return boxes;

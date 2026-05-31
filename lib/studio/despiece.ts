@@ -74,10 +74,11 @@ const ROLE_BADGE: Record<PanelRoleStudio, string> = {
 const round = (v: number) => Math.round(v * 1000) / 1000;
 const toCm = (v: number) => Math.round(v * 1000) / 10;
 
-/** Map a 3D box to its flat-panel cut dimensions + orientation. */
-function rawFromBox(box: Box3D): RawPanel {
+/** Map a 3D box to its flat-panel cut dimensions + orientation.
+ *  Returns null for non-cut roles (hanging bars, etc.) that are visual only. */
+function rawFromBox(box: Box3D): RawPanel | null {
   const [sx, sy, sz] = box.size;
-  const role: Record<BoxRole, PanelRoleStudio> = {
+  const role: Partial<Record<BoxRole, PanelRoleStudio>> = {
     side: "vertical-side",
     deck: "horizontal-deck",
     shelf: "horizontal-deck",
@@ -88,8 +89,12 @@ function rawFromBox(box: Box3D): RawPanel {
     "drawer-back": "drawer-back",
     "drawer-bottom": "drawer-bottom",
     "drawer-inner-front": "drawer-inner-front",
+    "hanging-rail": "horizontal-deck", // structural bar appears in cutlist as a horizontal panel
+    "divider-panel": "vertical-side",  // vertical divider appears as a side panel
+    // "hanging-bar" intentionally omitted — metal rod, not a cut panel
   };
   const r = role[box.role];
+  if (!r) return null; // non-cut role (hanging-bar, etc.)
   if (r === "vertical-side") {
     return { role: r, orientation: "vertical-yz", width: toCm(sz), height: toCm(sy), thickness: toCm(sx) };
   }
@@ -178,6 +183,7 @@ export function computeDespiece(doc: StudioDocument): DespieceResult {
 
   for (const box of boxes) {
     const raw = rawFromBox(box);
+    if (!raw) continue; // skip non-cut roles (hanging bars, etc.)
     const key = panelKey(raw);
     const existing = groups.get(key);
     if (existing) {

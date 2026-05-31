@@ -16,4 +16,7 @@ export const ROLE_COLORS: Record<BoxRole, string> = {
   "drawer-back": "#c6ccd3",
   "drawer-bottom": "#eceff2",
   "drawer-inner-front": "#bfc6cf",
+  "hanging-rail": "#2f88ff", // same as structural side
+  "hanging-bar": "#9ab4cc",  // lighter — metal rod
+  "divider-panel": "#2f88ff", // structural vertical panel
 };
