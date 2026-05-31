@@ -21,7 +21,13 @@ export type CellType =
   | "right-door";
 
 /** What lives *inside* the compartment, independent of any door in front. */
-export type CellInterior = "empty" | "shelf" | "drawer";
+export type CellInterior =
+  | "empty"
+  | "shelf"
+  | "drawer"
+  | "hanging"    // clothes rail with hanging space
+  | "divider"    // vertical divider panel(s)
+  | "appliance"; // reserved space for appliance (microwave, oven, etc.)
 
 /** The door treatment on the *front* of the compartment, independent of interior. */
 export type CellFront = "none" | "double" | "left" | "right" | "flip-up";
@@ -30,11 +36,12 @@ export interface StudioCell {
   id: string;
   /** @deprecated legacy single-axis type — read via cellInterior()/cellFront() */
   type?: CellType;
-  interior?: CellInterior; // what's inside (empty / shelves / drawers)
+  interior?: CellInterior; // what's inside (empty / shelves / drawers / …)
   front?: CellFront; // door in front (none / double / left / right / flip-up)
   height: number; // centimeters (total exterior section height = lateral height for a single-cell column)
-  shelfCount?: number; // shelf interior
-  drawerCount?: number; // drawer interior
+  shelfCount?: number;   // shelf interior
+  drawerCount?: number;  // drawer interior
+  dividerCount?: number; // divider interior — number of vertical panels
 }
 
 /**
@@ -76,11 +83,13 @@ export interface StudioColumn {
 }
 
 export interface StudioGlobals {
-  depth: number; // centimeters
+  depth: number;     // centimeters
   thickness: number; // mm
-  overhang: number; // mm
+  overhang: number;  // mm
   hiddenBackPanels?: string[]; // "${columnId}/${cellId}" keys for hidden fondos
-  mergedDecks?: string[];      // "${columnId}/${moduleIndex}" - junction between module mi and mi+1 is merged into one 2T panel
+  mergedDecks?: string[];      // "${leftColId}:${rightColId}/${mi}/${j}" — horizontal deck merges
+  spanningFronts?: string[];   // "${colId}/${bottomCellId}/${topCellId}" — spanning door across two adj cells
+  openJoints?: string[];       // "${leftColId}:${rightColId}" — no separator panel between adjacent columns
 }
 
 export interface ManualPanel {
@@ -189,7 +198,7 @@ export function addCell(
 }
 
 export type CellPatch = Partial<
-  Pick<StudioCell, "interior" | "front" | "height" | "shelfCount" | "drawerCount">
+  Pick<StudioCell, "interior" | "front" | "height" | "shelfCount" | "drawerCount" | "dividerCount">
 >;
 
 export function updateCells(
@@ -287,4 +296,36 @@ export function toggleMergedDeck(
     ? current.filter((k) => k !== key)
     : [...current, key];
   return touch({ ...doc, globals: { ...doc.globals, mergedDecks: next } });
+}
+
+/** Toggle a spanning front between two vertically adjacent cells in the same column.
+ *  Key format: "${colId}/${bottomCellId}/${topCellId}"
+ *  Geometry builds a single tall door panel instead of two individual ones. */
+export function toggleSpanningFront(
+  doc: StudioDocument,
+  colId: string,
+  bottomCellId: string,
+  topCellId: string,
+): StudioDocument {
+  const key = `${colId}/${bottomCellId}/${topCellId}`;
+  const current = doc.globals.spanningFronts ?? [];
+  const next = current.includes(key)
+    ? current.filter((k) => k !== key)
+    : [...current, key];
+  return touch({ ...doc, globals: { ...doc.globals, spanningFronts: next } });
+}
+
+/** Toggle an open joint between two adjacent columns — removes the shared separator side panel.
+ *  Key format: "${leftColId}:${rightColId}" */
+export function toggleOpenJoint(
+  doc: StudioDocument,
+  leftColId: string,
+  rightColId: string,
+): StudioDocument {
+  const key = `${leftColId}:${rightColId}`;
+  const current = doc.globals.openJoints ?? [];
+  const next = current.includes(key)
+    ? current.filter((k) => k !== key)
+    : [...current, key];
+  return touch({ ...doc, globals: { ...doc.globals, openJoints: next } });
 }

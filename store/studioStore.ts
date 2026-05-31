@@ -17,6 +17,8 @@ import {
   deleteManualPanel as deleteManualPanelMut,
   setGlobals as setGlobalsMut,
   toggleMergedDeck as toggleMergedDeckMut,
+  toggleSpanningFront as toggleSpanningFrontMut,
+  toggleOpenJoint as toggleOpenJointMut,
   updateBandingOverride as updateBandingOverrideMut,
   updateCells as updateCellsMut,
   updateColumnWidth,
@@ -63,6 +65,8 @@ interface StudioState {
   deleteManualPanel: (id: string) => void;
   updateBandingOverride: (panelKey: string, banding: { top: boolean; bottom: boolean; left: boolean; right: boolean }) => void;
   toggleMergedDeck: (leftColId: string, rightColId: string, mi: number, j: number) => void;
+  toggleSpanningFront: (colId: string, bottomCellId: string, topCellId: string) => void;
+  toggleOpenJoint: (leftColId: string, rightColId: string) => void;
 
   newDocument: () => void;
   load: (id: string) => Promise<void>;
@@ -135,6 +139,10 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     set((s) => ({ doc: updateBandingOverrideMut(s.doc, panelKey, banding) })),
   toggleMergedDeck: (leftColId, rightColId, mi, j) =>
     set((s) => ({ doc: toggleMergedDeckMut(s.doc, leftColId, rightColId, mi, j) })),
+  toggleSpanningFront: (colId, bottomCellId, topCellId) =>
+    set((s) => ({ doc: toggleSpanningFrontMut(s.doc, colId, bottomCellId, topCellId) })),
+  toggleOpenJoint: (leftColId, rightColId) =>
+    set((s) => ({ doc: toggleOpenJointMut(s.doc, leftColId, rightColId) })),
 
   newDocument: () =>
     set({ doc: createStudioDocument(), selection: [], publishedAt: undefined }),

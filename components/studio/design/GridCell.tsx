@@ -11,12 +11,10 @@ import type { ColorMode } from "@/store/studioStore";
 
 interface Palette {
   front: string; // door / drawer front fill
-  knob: string; // hardware dot
-  line: string; // shelf / divider line
+  knob: string;  // hardware dot
+  line: string;  // shelf / divider line
 }
 
-// 2D facade colors track the 3D role colors so both render modes read the
-// same: accent-yellow fronts when colored, neutral tan when uncolored.
 const PALETTES: Record<ColorMode, Palette> = {
   colored: { front: "#f4b450", knob: "#151312", line: "#5b5a58" },
   uncolored: { front: "#d7d2c8", knob: "#2a2723", line: "#6d6865" },
@@ -27,24 +25,23 @@ export function GridCell({
   colorMode,
   selected,
   onSelect,
+  hideFront,
 }: {
   cell: StudioCell;
   colorMode: ColorMode;
   selected: boolean;
   onSelect: (id: string, additive: boolean) => void;
+  hideFront?: boolean; // true when this cell's door is covered by a spanning front above
 }) {
   const pal = PALETTES[colorMode];
   const drawerCount = Math.max(1, cell.drawerCount ?? 1);
   const shelfCount = Math.max(1, cell.shelfCount ?? 1);
+  const dividerCount = Math.max(1, cell.dividerCount ?? 1);
   const interior = cellInterior(cell);
   const front = cellFront(cell);
-  // When there are shelves/drawers behind a door we render the door slightly
-  // translucent so the interior reads through — "you can tell what's inside".
   const doorOpacity = interior === "empty" ? 1 : 0.82;
 
-  // All cell types grow proportionally. Base: DEFAULT_CELL_HEIGHT (30 cm) = 40 px.
-  // 3 m = 400 px — fits on iPhone 13 Pro Max (926 px portrait) with room for UI.
-  // Min 20 px keeps tiny cells clickable; DesignPane has overflow-auto for scroll.
+  // Base: DEFAULT_CELL_HEIGHT (30 cm) = 40 px. Min 20 px keeps tiny cells clickable.
   const cellHeightPx = Math.max(20, Math.round((cell.height / DEFAULT_CELL_HEIGHT) * 40));
 
   return (
@@ -62,7 +59,7 @@ export function GridCell({
           : "border-[#5b5a58] hover:border-[#8d8985]",
       )}
     >
-      {/* ---- Interior (drawn first, behind any door) ---- */}
+      {/* ── Interior (drawn first, behind any door) ── */}
       {interior === "drawer" && (
         <div className="absolute inset-1.5 flex flex-col-reverse gap-1">
           {Array.from({ length: drawerCount }).map((_, i) => (
@@ -83,17 +80,53 @@ export function GridCell({
       {interior === "shelf" && (
         <div className="absolute inset-x-2 inset-y-2 flex flex-col justify-evenly">
           {Array.from({ length: shelfCount }).map((_, i) => (
-            <span
+            <span key={i} className="h-1 rounded-full" style={{ background: pal.line }} />
+          ))}
+        </div>
+      )}
+
+      {interior === "hanging" && (
+        <div className="absolute inset-1.5 flex flex-col">
+          {/* Rail bar */}
+          <div className="h-1.5 rounded-sm" style={{ background: pal.line, opacity: 0.9 }} />
+          {/* Hanging bars */}
+          <div className="flex flex-1 items-start justify-evenly px-1 pt-1">
+            {Array.from({ length: Math.max(3, Math.floor(cell.height / 10)) }).map((_, i) => (
+              <div
+                key={i}
+                className="w-0.5 rounded-b"
+                style={{ background: pal.line, height: "42%", opacity: 0.65 }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {interior === "divider" && (
+        <div className="absolute inset-1.5 flex items-stretch justify-evenly">
+          {Array.from({ length: dividerCount }).map((_, i) => (
+            <div
               key={i}
-              className="h-1 rounded-full"
+              className="w-0.5 self-stretch rounded-full"
               style={{ background: pal.line }}
             />
           ))}
         </div>
       )}
 
-      {/* ---- Front door (drawn on top; translucent if there's an interior) ---- */}
-      {front === "left" && (
+      {interior === "appliance" && (
+        <div
+          className="absolute inset-2 flex items-center justify-center rounded border-2 border-dashed"
+          style={{ borderColor: pal.line, opacity: 0.55 }}
+        >
+          <span className="select-none text-[10px]" style={{ color: pal.line }}>
+            ⬜
+          </span>
+        </div>
+      )}
+
+      {/* ── Front door (drawn on top) ── */}
+      {!hideFront && front === "left" && (
         <span
           className="absolute inset-2 rounded-[1px] border-r-4 border-black/40"
           style={{ background: pal.front, opacity: doorOpacity }}
@@ -105,7 +138,7 @@ export function GridCell({
         </span>
       )}
 
-      {front === "right" && (
+      {!hideFront && front === "right" && (
         <span
           className="absolute inset-2 rounded-[1px] border-l-4 border-black/40"
           style={{ background: pal.front, opacity: doorOpacity }}
@@ -117,7 +150,7 @@ export function GridCell({
         </span>
       )}
 
-      {front === "double" && (
+      {!hideFront && front === "double" && (
         <span className="absolute inset-2 grid grid-cols-2 gap-1" style={{ opacity: doorOpacity }}>
           <span className="relative rounded-[1px]" style={{ background: pal.front }}>
             <span
@@ -134,12 +167,11 @@ export function GridCell({
         </span>
       )}
 
-      {front === "flip-up" && (
+      {!hideFront && front === "flip-up" && (
         <span
           className="absolute inset-2 rounded-[1px] border-t-4 border-black/40"
           style={{ background: pal.front, opacity: doorOpacity }}
         >
-          {/* handle along the bottom edge for a lift-up door */}
           <span
             className="absolute bottom-2 left-1/2 size-1.5 -translate-x-1/2 rounded-full"
             style={{ background: pal.knob }}
