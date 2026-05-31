@@ -75,7 +75,7 @@ export function FacadeGrid() {
 
   return (
     <div
-      className="flex min-h-full items-end justify-center gap-3 p-6"
+      className="flex min-h-full select-none items-end justify-center gap-3 p-6"
       onClick={clearSelection}
     >
       <AddAffordance
@@ -168,10 +168,10 @@ export function FacadeGrid() {
                           toggleSpanningFront(col.id, cell.id, nextCell.id);
                         }}
                         className={cn(
-                          "relative z-10 -my-px flex h-3 w-full items-center justify-center transition-all",
+                          "relative z-10 -my-2 flex h-4 w-full items-center justify-center transition-all",
                           isSpanned
                             ? "opacity-100"
-                            : "opacity-0 hover:opacity-100 focus:opacity-100",
+                            : "opacity-0 hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-30",
                         )}
                       >
                         <span
