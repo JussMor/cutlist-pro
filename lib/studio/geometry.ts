@@ -630,7 +630,7 @@ export function buildAssembly(
       pos: [cxSpan, cyc, D - t / 2],
       size: [spanW, innerH, t],
       color: ROLE_COLORS.back,
-      meta: { column: ciL, module: mi },
+      meta: { column: ciL, columnRight: ciR, module: mi },
     });
   }
 

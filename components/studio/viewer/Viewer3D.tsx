@@ -5,8 +5,22 @@ import dynamic from "next/dynamic";
 import { useCallback, useMemo } from "react";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { MAX_MODULE_HEIGHT_CM } from "@/lib/studio/document";
+import type { StudioColumn } from "@/lib/studio/document";
 import { cn } from "@/lib/utils";
 import { useStudioStore } from "@/store/studioStore";
+
+const LETTERS = "ABCDEFGHIJ";
+
+function colModuleCount(col: StudioColumn): number {
+  let count = 1;
+  let cumH = 0;
+  for (const cell of col.cells) {
+    if (cumH > 0 && cumH + cell.height > MAX_MODULE_HEIGHT_CM) { count++; cumH = 0; }
+    cumH += cell.height;
+  }
+  return count;
+}
 
 const Scene = dynamic(() => import("./Scene"), {
   ssr: false,
@@ -31,17 +45,45 @@ export function Viewer3D() {
   const hiddenCount = hiddenPanels.length;
 
   // ── Back panel visibility helpers ─────────────────────────────────────────
-  const backPanelItems = useMemo(
-    () =>
-      doc.columns.flatMap((col, ci) =>
-        col.cells.map((cell, idx) => ({
-          key: `${col.id}/${cell.id}`,
-          label: `Columna ${ci + 1} – Sección ${idx + 1}`,
-          isHidden: hiddenSet.has(`${col.id}/${cell.id}`),
-        })),
-      ),
-    [doc.columns, hiddenSet],
-  );
+  const backPanelItems = useMemo(() => {
+    // Columns whose individual back panels are replaced by a grouped spanning back
+    const groupedColIds = new Set<string>();
+    for (const key of doc.globals.openJoints ?? []) {
+      const sep = key.indexOf(":");
+      if (sep >= 0) { groupedColIds.add(key.slice(0, sep)); groupedColIds.add(key.slice(sep + 1)); }
+    }
+
+    const items: { key: string; label: string; isHidden: boolean }[] = [];
+
+    // Individual back panels — skip cells belonging to grouped column pairs
+    doc.columns.forEach((col, ci) => {
+      if (groupedColIds.has(col.id)) return;
+      col.cells.forEach((cell, idx) => {
+        const key = `${col.id}/${cell.id}`;
+        items.push({ key, label: `Columna ${ci + 1} – Sección ${idx + 1}`, isHidden: hiddenSet.has(key) });
+      });
+    });
+
+    // Grouped back panels — one per module per grouped pair
+    for (const joint of doc.globals.openJoints ?? []) {
+      const sep = joint.indexOf(":");
+      if (sep < 0) continue;
+      const leftColId = joint.slice(0, sep);
+      const rightColId = joint.slice(sep + 1);
+      const ciL = doc.columns.findIndex((c) => c.id === leftColId);
+      const ciR = doc.columns.findIndex((c) => c.id === rightColId);
+      if (ciL < 0 || ciR < 0) continue;
+      const maxMi = Math.max(colModuleCount(doc.columns[ciL]), colModuleCount(doc.columns[ciR]));
+      for (let mi = 0; mi < maxMi; mi++) {
+        const key = `grouped/${leftColId}/${rightColId}/m${mi}`;
+        const colLabel = `${LETTERS[ciL] ?? ciL + 1}+${LETTERS[ciR] ?? ciR + 1}`;
+        const label = maxMi > 1 ? `Columnas ${colLabel} – Módulo ${mi + 1}` : `Columnas ${colLabel}`;
+        items.push({ key, label, isHidden: hiddenSet.has(key) });
+      }
+    }
+
+    return items;
+  }, [doc.columns, doc.globals.openJoints, hiddenSet]);
 
   const toggleBackPanel = useCallback(
     (key: string) => {

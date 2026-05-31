@@ -167,11 +167,32 @@ export function computeDespiece(doc: StudioDocument): DespieceResult {
   const hidden = new Set(doc.globals.hiddenBackPanels ?? []);
   const excludeIds = new Set<string>();
   if (hidden.size > 0) {
+    const colIdToIdx = new Map(doc.columns.map((c, i) => [c.id, i]));
+    // Individual back panels
     doc.columns.forEach((col, ci) => {
       col.cells.forEach((cell, idx) => {
         if (hidden.has(`${col.id}/${cell.id}`)) excludeIds.add(`back-${ci}-${idx}`);
       });
     });
+    // Grouped back panels — key format: "grouped/${leftColId}/${rightColId}/m${mi}"
+    for (const hiddenKey of hidden) {
+      if (!hiddenKey.startsWith("grouped/")) continue;
+      const inner = hiddenKey.slice("grouped/".length);
+      const lastSlash = inner.lastIndexOf("/");
+      if (lastSlash < 0) continue;
+      const colPart = inner.slice(0, lastSlash);
+      const miStr = inner.slice(lastSlash + 1);
+      const midSlash = colPart.indexOf("/");
+      if (midSlash < 0) continue;
+      const leftColId = colPart.slice(0, midSlash);
+      const rightColId = colPart.slice(midSlash + 1);
+      const mi = parseInt(miStr.slice(1), 10);
+      const ciL = colIdToIdx.get(leftColId);
+      const ciR = colIdToIdx.get(rightColId);
+      if (ciL != null && ciR != null && !isNaN(mi)) {
+        excludeIds.add(`back-grouped-${ciL}-${ciR}-m${mi}`);
+      }
+    }
   }
 
   const raw = buildAssembly(doc);
