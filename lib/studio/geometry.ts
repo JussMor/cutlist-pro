@@ -616,8 +616,8 @@ export function buildAssembly(
     if (!modL && !modR) continue;
     const startY = modL?.startY ?? modR!.startY;
     const totalH = Math.max(modL?.height ?? 0, modR?.height ?? 0);
-    // Inner height: from the inner face of the floor deck to the inner face of the ceiling deck
-    const innerH = Math.max(0.02, totalH - t);
+    // Inner height: from inner top face of floor deck to inner bottom face of ceiling deck = totalH - 2t
+    const innerH = Math.max(0.02, totalH - 2 * t);
     const cyc = startY + totalH / 2;
     // Span from inner face of left outer side to inner face of right outer side
     const xL = xs[ciL];
