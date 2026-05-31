@@ -271,12 +271,17 @@ export function deleteManualPanel(doc: StudioDocument, id: string): StudioDocume
   return touch({ ...doc, manualPanels });
 }
 
+/** Toggle a horizontal deck merge between two adjacent columns.
+ *  Key format: "${leftColId}:${rightColId}/${mi}/${j}"
+ *  spanW = innerW_left + thickness + innerW_right (separator absorbed into the merged panel). */
 export function toggleMergedDeck(
   doc: StudioDocument,
-  colId: string,
+  leftColId: string,
+  rightColId: string,
   mi: number,
+  j: number,
 ): StudioDocument {
-  const key = `${colId}/${mi}`;
+  const key = `${leftColId}:${rightColId}/${mi}/${j}`;
   const current = doc.globals.mergedDecks ?? [];
   const next = current.includes(key)
     ? current.filter((k) => k !== key)
