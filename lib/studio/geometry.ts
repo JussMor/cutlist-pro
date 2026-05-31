@@ -334,11 +334,11 @@ function flipDoorBox(
     pos: [
       cx,
       hingeY - Math.cos(angle) * (height / 2),
-      -t / 2 - Math.sin(angle) * (height / 2),
+      -Math.sin(angle) * (height / 2) - Math.cos(angle) * (t / 2),
     ],
     size: [width, height, t],
     color: ROLE_COLORS.door,
-    rotation: [-angle, 0, 0],
+    rotation: [angle, 0, 0],
     meta: { side: "up" },
   };
 }
