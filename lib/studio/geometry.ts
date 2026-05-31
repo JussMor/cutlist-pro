@@ -419,42 +419,47 @@ export function buildAssembly(
     if (ciL == null || ciR == null || ciR !== ciL + 1) continue;
     hMerges.push({ ciL, ciR, mi: Number(m[3]), j: Number(m[4]) });
   }
-  // ── Open joints: boundaries where the intermediate side panel is removed,
-  //    and floor + ceiling decks are automatically spanned into one wide panel.
-  // Key format: "${leftColId}:${rightColId}"
-  const openJointBoundaries = new Set<number>();
+  // ── Column grouping: floor, ceiling and back span both columns as one body.
+  //    The separator side panel between grouped columns is KEPT (structural).
+  //    Key format: "${leftColId}:${rightColId}"
+  //
+  //    Per module: floor (j=0) and ceiling (j=k) decks are auto-spanned.
+  //    Max module height constraint is preserved — each module gets its own panels.
+  const groupedBackSkip = new Set<string>(); // `${ci}/${globalIdx}` — skip individual back
+  interface GroupedBack { ciL: number; ciR: number; mi: number }
+  const groupedBacks: GroupedBack[] = [];
+
   for (const key of doc.globals.openJoints ?? []) {
     const sep = key.indexOf(":");
     if (sep < 0) continue;
     const ciL = colIdToIdx.get(key.slice(0, sep));
     const ciR = colIdToIdx.get(key.slice(sep + 1));
     if (ciL == null || ciR == null || ciR !== ciL + 1) continue;
-    openJointBoundaries.add(ciL + 1);
 
-    // For each shared module, auto-span the floor (j=0) and ceiling (j=k) decks.
-    // This is what makes two columns into a true single body — shared structural panels.
-    // Max module height constraint is preserved: each module gets its own spanning panels.
     const maxMi = Math.max(columnModules[ciL]?.length ?? 0, columnModules[ciR]?.length ?? 0);
     for (let mi = 0; mi < maxMi; mi++) {
       const modL = columnModules[ciL]?.[mi];
       const modR = columnModules[ciR]?.[mi];
       if (!modL && !modR) continue;
 
-      // Floor deck (j=0): always present in every module
-      const floorAlreadyMerged = hMerges.some(
-        (hm) => hm.ciL === ciL && hm.ciR === ciR && hm.mi === mi && hm.j === 0,
-      );
-      if (!floorAlreadyMerged) hMerges.push({ ciL, ciR, mi, j: 0 });
-
-      // Ceiling deck: j = cell count of whichever module exists (they should match
-      // for a well-formed grouped cabinet; if they differ, use the left column's count)
-      const kCeil = modL?.cells.length ?? modR?.cells.length ?? 0;
-      if (kCeil > 0) {
-        const ceilAlreadyMerged = hMerges.some(
-          (hm) => hm.ciL === ciL && hm.ciR === ciR && hm.mi === mi && hm.j === kCeil,
-        );
-        if (!ceilAlreadyMerged) hMerges.push({ ciL, ciR, mi, j: kCeil });
+      // Auto-span floor deck (j=0)
+      if (!hMerges.some((hm) => hm.ciL === ciL && hm.ciR === ciR && hm.mi === mi && hm.j === 0)) {
+        hMerges.push({ ciL, ciR, mi, j: 0 });
       }
+      // Auto-span ceiling deck (j=k per column)
+      const kCeil = modL?.cells.length ?? modR?.cells.length ?? 0;
+      if (kCeil > 0 && !hMerges.some((hm) => hm.ciL === ciL && hm.ciR === ciR && hm.mi === mi && hm.j === kCeil)) {
+        hMerges.push({ ciL, ciR, mi, j: kCeil });
+      }
+
+      // Mark per-cell back panels for both columns to be replaced by one spanning back
+      for (const [ci, mod] of [[ciL, modL], [ciR, modR]] as const) {
+        if (!mod) continue;
+        for (let li = 0; li < mod.cells.length; li++) {
+          groupedBackSkip.add(`${ci}/${mod.cellOffset + li}`);
+        }
+      }
+      groupedBacks.push({ ciL, ciR, mi });
     }
   }
 
@@ -482,8 +487,6 @@ export function buildAssembly(
   // Vertical sides: one panel per boundary per module.
   // Height at boundary b for module m = max of adjacent columns' module-m height.
   for (let b = 0; b < xs.length; b++) {
-    // Open joint: skip the intermediate separator panel at this boundary
-    if (b > 0 && b < xs.length - 1 && openJointBoundaries.has(b)) continue;
     for (let mi = 0; mi < maxModules; mi++) {
       const leftMod = b > 0 ? columnModules[b - 1][mi] : undefined;
       const rightMod = b < doc.columns.length ? columnModules[b][mi] : undefined;
@@ -544,14 +547,18 @@ export function buildAssembly(
         const top = deckCenters[localIdx + 1] - t / 2;
         const cyc = (bottom + top) / 2;
 
-        boxes.push({
-          id: `back-${ci}-${globalIdx}`,
-          role: "back",
-          pos: [cx, cyc, D - t / 2],
-          size: [innerW, Math.max(0.02, top - bottom), t],
-          color: ROLE_COLORS.back,
-          meta: { column: ci, cell: globalIdx, module: mi },
-        });
+        // Individual back panels are skipped for grouped column pairs —
+        // a single spanning back panel is generated per module after the main loop.
+        if (!groupedBackSkip.has(`${ci}/${globalIdx}`)) {
+          boxes.push({
+            id: `back-${ci}-${globalIdx}`,
+            role: "back",
+            pos: [cx, cyc, D - t / 2],
+            size: [innerW, Math.max(0.02, top - bottom), t],
+            color: ROLE_COLORS.back,
+            meta: { column: ci, cell: globalIdx, module: mi },
+          });
+        }
 
         // Record cell bounds for spanning front post-processing
         cellBoundsMap.set(cell.id, { bottom, top, cx, innerW, ci });
@@ -598,6 +605,32 @@ export function buildAssembly(
       size: [spanW, t, D],
       color: ROLE_COLORS.deck,
       meta: { column: ciL, columnRight: ciR, deckIndex: j, deckCount: k, module: mi, merged: true },
+    });
+  }
+
+  // ── Add spanning back panels for grouped column pairs ─────────────────────
+  // One wide back panel per module replaces the individual per-cell backs.
+  for (const { ciL, ciR, mi } of groupedBacks) {
+    const modL = columnModules[ciL]?.[mi];
+    const modR = columnModules[ciR]?.[mi];
+    if (!modL && !modR) continue;
+    const startY = modL?.startY ?? modR!.startY;
+    const totalH = Math.max(modL?.height ?? 0, modR?.height ?? 0);
+    // Inner height: from the inner face of the floor deck to the inner face of the ceiling deck
+    const innerH = Math.max(0.02, totalH - t);
+    const cyc = startY + totalH / 2;
+    // Span from inner face of left outer side to inner face of right outer side
+    const xL = xs[ciL];
+    const xR = xs[ciR + 1];
+    const spanW = xR - xL - t;
+    const cxSpan = (xL + xR) / 2;
+    boxes.push({
+      id: `back-grouped-${ciL}-${ciR}-m${mi}`,
+      role: "back",
+      pos: [cxSpan, cyc, D - t / 2],
+      size: [spanW, innerH, t],
+      color: ROLE_COLORS.back,
+      meta: { column: ciL, module: mi },
     });
   }
 

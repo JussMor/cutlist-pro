@@ -305,8 +305,8 @@ export function FacadeGrid() {
                   type="button"
                   title={
                     isGrouped
-                      ? "Desagrupar columnas — restaurar panel separador"
-                      : "Agrupar en un solo cuerpo — quita el panel separador y une piso y techo"
+                      ? "Desagrupar — restaurar piso, techo y fondo individuales"
+                      : "Agrupar — une piso, techo y fondo en una sola pieza (el separador lateral se mantiene)"
                   }
                   onClick={(e) => {
                     e.stopPropagation();
