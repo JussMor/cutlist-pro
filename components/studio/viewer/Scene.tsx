@@ -76,6 +76,18 @@ function DottedFloor({
 
 /** Stable key that survives column/cell reordering within the same document. */
 function backPanelKey(box: Box3D, doc: StudioDocument): string | null {
+  // Grouped back panel spans two adjacent columns
+  if (box.meta?.columnRight != null) {
+    const ciL = box.meta.column;
+    const ciR = box.meta.columnRight;
+    const mi = box.meta.module;
+    if (ciL == null || mi == null) return null;
+    const colL = doc.columns[ciL];
+    const colR = doc.columns[ciR];
+    if (!colL || !colR) return null;
+    return `grouped/${colL.id}/${colR.id}/m${mi}`;
+  }
+  // Individual back panel
   const ci = box.meta?.column;
   const idx = box.meta?.cell;
   if (ci == null || idx == null) return null;

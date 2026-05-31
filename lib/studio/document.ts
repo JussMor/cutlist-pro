@@ -315,7 +315,9 @@ export function toggleSpanningFront(
   return touch({ ...doc, globals: { ...doc.globals, spanningFronts: next } });
 }
 
-/** Toggle an open joint between two adjacent columns — removes the shared separator side panel.
+/** Toggle column grouping between two adjacent columns.
+ *  When grouped: floor, ceiling and back panels span both columns as one wide piece.
+ *  The separator side panel between them is KEPT.
  *  Key format: "${leftColId}:${rightColId}" */
 export function toggleOpenJoint(
   doc: StudioDocument,

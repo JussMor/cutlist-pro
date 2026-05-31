@@ -304,8 +304,8 @@ export function SelectionInspector() {
               type="button"
               title={
                 isGrouped
-                  ? "Restore separator panel between columns"
-                  : "Remove separator panel — open the columns into one space"
+                  ? "Desagrupar — restaurar piso, techo y fondo individuales"
+                  : "Agrupar — une piso, techo y fondo (el separador lateral se mantiene)"
               }
               onClick={() =>
                 toggleOpenJoint(jointEligible.leftColId, jointEligible.rightColId)
