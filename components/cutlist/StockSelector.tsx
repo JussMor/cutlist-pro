@@ -86,7 +86,7 @@ export function StockSelector({
                       <div>{sheet.name}</div>
                       <div className="text-xs text-[#989faa]">
                         {sheet.qty} plancha{sheet.qty !== 1 ? "s" : ""} · $
-                        {sheet.pricePerSheet.toFixed(2)}
+                        {(sheet.pricePerSheet ?? 0).toFixed(2)}
                       </div>
                     </div>
                   </SelectItem>
@@ -104,7 +104,7 @@ export function StockSelector({
               options={sheets.map((sheet) => ({
                 id: sheet.odooId,
                 label: sheet.name,
-                subtitle: `${sheet.qty} plancha${sheet.qty !== 1 ? "s" : ""} · $${sheet.pricePerSheet.toFixed(2)}`,
+                subtitle: `${sheet.qty} plancha${sheet.qty !== 1 ? "s" : ""} · $${(sheet.pricePerSheet ?? 0).toFixed(2)}`,
               }))}
               selectedIds={selectedSheetIds}
               onToggle={(id) => onToggleSheet(Number(id))}

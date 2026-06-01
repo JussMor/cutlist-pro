@@ -45,7 +45,7 @@ export function StockTable({ sheets }: Props) {
               </td>
               <td style={{ textAlign: "right" }}>{s.qty}</td>
               <td style={{ textAlign: "right" }} className="price">
-                ${s.pricePerSheet.toFixed(2)}
+                ${(s.pricePerSheet ?? 0).toFixed(2)}
               </td>
             </tr>
           ))}

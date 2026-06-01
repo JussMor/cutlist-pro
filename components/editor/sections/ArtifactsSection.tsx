@@ -228,7 +228,7 @@ export function ArtifactsSection({
                             <div>{sheet.name}</div>
                             <div className="text-[#989faa] text-xs">
                               {sheet.qty} plancha{sheet.qty !== 1 ? "s" : ""} ·
-                              ${sheet.pricePerSheet.toFixed(2)}
+                              ${(sheet.pricePerSheet ?? 0).toFixed(2)}
                             </div>
                           </div>
                         );
@@ -245,7 +245,7 @@ export function ArtifactsSection({
                             <div className="font-medium">{sheet.name}</div>
                             <div className="text-xs text-[#989faa]">
                               {sheet.qty} plancha{sheet.qty !== 1 ? "s" : ""} ·
-                              ${sheet.pricePerSheet.toFixed(2)}
+                              ${(sheet.pricePerSheet ?? 0).toFixed(2)}
                             </div>
                           </div>
                         </SelectItem>
