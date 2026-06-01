@@ -237,8 +237,6 @@ export function deleteCells(doc: StudioDocument, ids: string[]): StudioDocument 
       cells: col.cells.filter((cell) => !idSet.has(cell.id)),
     }))
     .filter((col) => col.cells.length > 0);
-  // never allow an empty document
-  if (columns.length === 0) return touch({ ...doc, columns: [createColumn(1)] });
   return touch({ ...doc, columns });
 }
 
