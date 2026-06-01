@@ -486,7 +486,13 @@ export function buildAssembly(
 
   // Vertical sides: one panel per boundary per module.
   // Height at boundary b for module m = max of adjacent columns' module-m height.
+  // Skip a side boundary if both adjacent columns are noCarcass or absent.
   for (let b = 0; b < xs.length; b++) {
+    const leftCol = b > 0 ? doc.columns[b - 1] : undefined;
+    const rightCol = b < doc.columns.length ? doc.columns[b] : undefined;
+    const leftIsCarcass = leftCol && !leftCol.noCarcass;
+    const rightIsCarcass = rightCol && !rightCol.noCarcass;
+    if (!leftIsCarcass && !rightIsCarcass) continue; // both sides are noCarcass or absent
     for (let mi = 0; mi < maxModules; mi++) {
       const leftMod = b > 0 ? columnModules[b - 1][mi] : undefined;
       const rightMod = b < doc.columns.length ? columnModules[b][mi] : undefined;
@@ -527,19 +533,21 @@ export function buildAssembly(
         deckCenters.push(j < k ? startY + cumH : startY + totalH - t / 2);
       }
 
-      deckCenters.forEach((dc, j) => {
-        // Skip decks absorbed into a horizontal merged spanning panel
-        if (skipDeck.has(`${ci}/${mi}/${j}`)) return;
+      if (!col.noCarcass) {
+        deckCenters.forEach((dc, j) => {
+          // Skip decks absorbed into a horizontal merged spanning panel
+          if (skipDeck.has(`${ci}/${mi}/${j}`)) return;
 
-        boxes.push({
-          id: `deck-${ci}-m${mi}-${j}`,
-          role: "deck",
-          pos: [cx, dc, D / 2],
-          size: [innerW, t, D],
-          color: ROLE_COLORS.deck,
-          meta: { column: ci, deckIndex: j, deckCount: k, module: mi },
+          boxes.push({
+            id: `deck-${ci}-m${mi}-${j}`,
+            role: "deck",
+            pos: [cx, dc, D / 2],
+            size: [innerW, t, D],
+            color: ROLE_COLORS.deck,
+            meta: { column: ci, deckIndex: j, deckCount: k, module: mi },
+          });
         });
-      });
+      }
 
       mod.cells.forEach((cell, localIdx) => {
         const globalIdx = mod.cellOffset + localIdx;
@@ -547,9 +555,9 @@ export function buildAssembly(
         const top = deckCenters[localIdx + 1] - t / 2;
         const cyc = (bottom + top) / 2;
 
-        // Individual back panels are skipped for grouped column pairs —
+        // Individual back panels are skipped for grouped column pairs or noCarcass columns —
         // a single spanning back panel is generated per module after the main loop.
-        if (!groupedBackSkip.has(`${ci}/${globalIdx}`)) {
+        if (!col.noCarcass && !groupedBackSkip.has(`${ci}/${globalIdx}`)) {
           boxes.push({
             id: `back-${ci}-${globalIdx}`,
             role: "back",

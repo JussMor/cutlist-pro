@@ -80,6 +80,7 @@ export interface StudioColumn {
   id: string;
   width: number; // centimeters
   cells: StudioCell[]; // bottom -> top
+  noCarcass?: boolean; // when true, suppresses carcass panels (sides, decks, backs) — only drawer content
 }
 
 export interface StudioGlobals {
@@ -236,8 +237,6 @@ export function deleteCells(doc: StudioDocument, ids: string[]): StudioDocument 
       cells: col.cells.filter((cell) => !idSet.has(cell.id)),
     }))
     .filter((col) => col.cells.length > 0);
-  // never allow an empty document
-  if (columns.length === 0) return touch({ ...doc, columns: [createColumn(1)] });
   return touch({ ...doc, columns });
 }
 
@@ -313,6 +312,18 @@ export function toggleSpanningFront(
     ? current.filter((k) => k !== key)
     : [...current, key];
   return touch({ ...doc, globals: { ...doc.globals, spanningFronts: next } });
+}
+
+/** Toggle noCarcass mode on a column: suppresses structural panels (sides, decks, backs)
+ *  so only the drawer content appears — a standalone drawer bank without a cabinet box. */
+export function toggleNoCarcass(
+  doc: StudioDocument,
+  columnId: string,
+): StudioDocument {
+  const columns = doc.columns.map((col) =>
+    col.id === columnId ? { ...col, noCarcass: !col.noCarcass } : col,
+  );
+  return touch({ ...doc, columns });
 }
 
 /** Toggle column grouping between two adjacent columns.

@@ -17,6 +17,7 @@ import {
   deleteManualPanel as deleteManualPanelMut,
   setGlobals as setGlobalsMut,
   toggleMergedDeck as toggleMergedDeckMut,
+  toggleNoCarcass as toggleNoCarcassMut,
   toggleSpanningFront as toggleSpanningFrontMut,
   toggleOpenJoint as toggleOpenJointMut,
   updateBandingOverride as updateBandingOverrideMut,
@@ -67,6 +68,7 @@ interface StudioState {
   toggleMergedDeck: (leftColId: string, rightColId: string, mi: number, j: number) => void;
   toggleSpanningFront: (colId: string, bottomCellId: string, topCellId: string) => void;
   toggleOpenJoint: (leftColId: string, rightColId: string) => void;
+  toggleNoCarcass: (colId: string) => void;
 
   newDocument: () => void;
   load: (id: string) => Promise<void>;
@@ -143,6 +145,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     set((s) => ({ doc: toggleSpanningFrontMut(s.doc, colId, bottomCellId, topCellId) })),
   toggleOpenJoint: (leftColId, rightColId) =>
     set((s) => ({ doc: toggleOpenJointMut(s.doc, leftColId, rightColId) })),
+  toggleNoCarcass: (colId) =>
+    set((s) => ({ doc: toggleNoCarcassMut(s.doc, colId) })),
 
   newDocument: () =>
     set({ doc: createStudioDocument(), selection: [], publishedAt: undefined }),
