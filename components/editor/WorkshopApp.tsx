@@ -84,12 +84,10 @@ export function WorkshopApp() {
     modules: [],
   });
   const mo = useWorkshopModules({
-    onOrphanPanels: (moduleId) =>
-      pa.setEditablePanels((cur) =>
-        cur.map((p) =>
-          p.moduleId === moduleId ? { ...p, moduleId: ROOT_MODULE.id } : p,
-        ),
-      ),
+    onOrphanPanels: (moduleId) => {
+      pa.setEditablePanels((cur) => cur.filter((p) => p.moduleId !== moduleId));
+      pa.setArtifacts((cur) => cur.filter((a) => a.moduleId !== moduleId));
+    },
   });
   const pv = useWorkshopPreview({
     setResult,

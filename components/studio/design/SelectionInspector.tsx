@@ -3,6 +3,7 @@
 import {
   ArrowUpDown,
   Columns2,
+  Layers,
   PanelLeft,
   PanelRight,
   PanelTop,
@@ -59,6 +60,7 @@ export function SelectionInspector() {
   const remove = useStudioStore((s) => s.deleteSelection);
   const toggleSpanningFront = useStudioStore((s) => s.toggleSpanningFront);
   const toggleOpenJoint = useStudioStore((s) => s.toggleOpenJoint);
+  const toggleNoCarcass = useStudioStore((s) => s.toggleNoCarcass);
 
   if (selection.length === 0) return null;
 
@@ -121,6 +123,10 @@ export function SelectionInspector() {
     ? `${jointEligible.leftColId}:${jointEligible.rightColId}`
     : null;
   const isGrouped = jointKey ? (doc.globals.openJoints ?? []).includes(jointKey) : false;
+
+  // ── No-carcass toggle — applies when exactly one column is selected ───────
+  const noCarcassEligible = cols.length === 1 ? cols[0] : null;
+  const isNoCarcass = !!(noCarcassEligible?.noCarcass);
 
   return (
     <div className="rounded-xl border border-[#1f2735] bg-[#0d1119]/90 p-4 shadow-lg backdrop-blur">
@@ -319,6 +325,31 @@ export function SelectionInspector() {
             >
               {isGrouped ? <Unlink className="size-3.5" /> : <Link className="size-3.5" />}
               {isGrouped ? "Ungroup" : "Group"}
+            </button>
+          </>
+        )}
+
+        {/* No-carcass — only drawers, no surrounding box — available for a single selected column */}
+        {noCarcassEligible && (
+          <>
+            <label className="text-[#7d879a]">Carcass</label>
+            <button
+              type="button"
+              title={
+                isNoCarcass
+                  ? "Restaurar carcasa — agregar piso, techo, costados y fondo"
+                  : "Sin carcasa — solo cajones sin caja contenedora"
+              }
+              onClick={() => toggleNoCarcass(noCarcassEligible.id)}
+              className={cn(
+                "flex items-center justify-center gap-1.5 rounded-md border py-1.5 text-xs transition-colors",
+                isNoCarcass
+                  ? "border-[#f4b450] bg-[#f4b450]/15 text-[#f4b450]"
+                  : "border-[#1f2735] text-[#7d879a] hover:border-[#3a4660] hover:text-[#d7dde9]",
+              )}
+            >
+              <Layers className="size-3.5" />
+              {isNoCarcass ? "Sin carcasa" : "Con carcasa"}
             </button>
           </>
         )}
