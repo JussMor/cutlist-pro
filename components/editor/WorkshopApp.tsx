@@ -31,7 +31,6 @@ import {
 import { useWorkshopSheets } from "./hooks/useWorkshopSheets";
 import { OptimizerSection } from "./sections/OptimizerSection";
 import { PricingSection } from "./sections/PricingSection";
-import { ROOT_MODULE } from "./workshopPanelHelpers";
 import {
   loadProjectIntoWorkshop,
   resetWorkshopForNewProject,
