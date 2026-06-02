@@ -54,6 +54,7 @@ export function FacadeGrid() {
   const toggleMergedDeck = useStudioStore((s) => s.toggleMergedDeck);
   const toggleOpenJoint = useStudioStore((s) => s.toggleOpenJoint);
   const toggleSpanningFront = useStudioStore((s) => s.toggleSpanningFront);
+  const toggleSubGridCell = useStudioStore((s) => s.toggleSubGridCell);
 
   const selSet = new Set(selection);
   const spanningFronts = doc.globals.spanningFronts ?? [];
@@ -196,6 +197,7 @@ export function FacadeGrid() {
                       selected={selSet.has(cell.id)}
                       onSelect={toggleSelect}
                       hideFront={spanHideSet.has(cell.id)}
+                      onToggleSubGridCell={toggleSubGridCell}
                     />,
                   );
                 });

@@ -32,6 +32,13 @@ export type CellInterior =
 /** The door treatment on the *front* of the compartment, independent of interior. */
 export type CellFront = "none" | "double" | "left" | "right" | "flip-up";
 
+export interface SubGridCell {
+  id: string;
+  row: number;
+  col: number;
+  active?: boolean; // false = void. Default true.
+}
+
 export interface StudioCell {
   id: string;
   /** @deprecated legacy single-axis type — read via cellInterior()/cellFront() */
@@ -42,6 +49,12 @@ export interface StudioCell {
   shelfCount?: number;   // shelf interior
   drawerCount?: number;  // drawer interior
   dividerCount?: number; // divider interior — number of vertical panels
+  active?: boolean;      // false = void/hole. Default true. Retrocompatible.
+  subgrid?: {            // optional subdivision of this cell into a cols×rows mini-grid
+    cols: number;
+    rows: number;
+    cells: SubGridCell[];
+  };
 }
 
 /**
@@ -199,7 +212,7 @@ export function addCell(
 }
 
 export type CellPatch = Partial<
-  Pick<StudioCell, "interior" | "front" | "height" | "shelfCount" | "drawerCount" | "dividerCount">
+  Pick<StudioCell, "interior" | "front" | "height" | "shelfCount" | "drawerCount" | "dividerCount" | "active">
 >;
 
 export function updateCells(
@@ -323,6 +336,65 @@ export function toggleNoCarcass(
   const columns = doc.columns.map((col) =>
     col.id === columnId ? { ...col, noCarcass: !col.noCarcass } : col,
   );
+  return touch({ ...doc, columns });
+}
+
+/** Toggle a cell's active state. Inactive cells are voids — no panels generated. */
+export function toggleCellActive(doc: StudioDocument, cellId: string): StudioDocument {
+  const columns = doc.columns.map((col) => ({
+    ...col,
+    cells: col.cells.map((cell) =>
+      cell.id === cellId ? { ...cell, active: cell.active === false ? undefined : false } : cell,
+    ),
+  }));
+  return touch({ ...doc, columns });
+}
+
+/** Set (or clear) a subgrid on a cell. cols=1 rows=1 removes the subgrid. */
+export function setSubGrid(
+  doc: StudioDocument,
+  cellId: string,
+  cols: number,
+  rows: number,
+): StudioDocument {
+  const columns = doc.columns.map((col) => ({
+    ...col,
+    cells: col.cells.map((cell) => {
+      if (cell.id !== cellId) return cell;
+      if (cols <= 1 && rows <= 1) return { ...cell, subgrid: undefined };
+      const existing = cell.subgrid;
+      const subCells: SubGridCell[] = [];
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const prev = existing?.cells.find((s) => s.row === r && s.col === c);
+          subCells.push({ id: prev?.id ?? genId("sg"), row: r, col: c, active: prev?.active });
+        }
+      }
+      return { ...cell, subgrid: { cols, rows, cells: subCells } };
+    }),
+  }));
+  return touch({ ...doc, columns });
+}
+
+/** Toggle the active state of a single subcell within a cell's subgrid. */
+export function toggleSubGridCell(
+  doc: StudioDocument,
+  cellId: string,
+  row: number,
+  col: number,
+): StudioDocument {
+  const columns = doc.columns.map((colObj) => ({
+    ...colObj,
+    cells: colObj.cells.map((cell) => {
+      if (cell.id !== cellId || !cell.subgrid) return cell;
+      const subCells = cell.subgrid.cells.map((sc) =>
+        sc.row === row && sc.col === col
+          ? { ...sc, active: sc.active === false ? undefined : false }
+          : sc,
+      );
+      return { ...cell, subgrid: { ...cell.subgrid, cells: subCells } };
+    }),
+  }));
   return touch({ ...doc, columns });
 }
 

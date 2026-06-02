@@ -59,6 +59,17 @@ export type AssemblyState = "closed" | "open";
 const mm = (v: number) => v / 1000;
 const cm = (v: number) => v / 100;
 const cellH = (c: StudioCell) => Math.max(0.02, cm(c.height));
+const isCellActive = (c: StudioCell) => c.active !== false;
+
+function getCellAtY(mod: ModuleSegment, y: number): StudioCell | null {
+  let cur = mod.startY;
+  for (const cell of mod.cells) {
+    const end = cur + cellH(cell);
+    if (y >= cur && y <= end) return cell;
+    cur = end;
+  }
+  return null;
+}
 
 // Each stacked module must be no taller than this (mirrors MAX_MODULE_HEIGHT_CM)
 const MAX_MODULE_HEIGHT_M = 2.40;
@@ -385,6 +396,77 @@ function doorBox(
   };
 }
 
+function addSubgridContent(boxes: Box3D[], cell: StudioCell, ctx: CellCtx): void {
+  const { subgrid } = cell;
+  if (!subgrid) return;
+  const { cols, rows, cells: subCells } = subgrid;
+  const { cx, innerW, bottom, top, D, t, ci, idx } = ctx;
+
+  const subW = innerW / cols;
+  const subH = (top - bottom) / rows;
+  const metaCell = typeof idx === "number" ? idx : 0;
+
+  const isSubActive = (r: number, c: number): boolean => {
+    const sc = subCells.find((s) => s.row === r && s.col === c);
+    return sc ? sc.active !== false : true;
+  };
+
+  // Vertical dividers between subcell columns
+  for (let c = 0; c < cols - 1; c++) {
+    for (let r = 0; r < rows; r++) {
+      if (!isSubActive(r, c) && !isSubActive(r, c + 1)) continue;
+      const x = cx - innerW / 2 + (c + 1) * subW;
+      const rBottom = bottom + r * subH;
+      const rCy = rBottom + subH / 2;
+      boxes.push({
+        id: `sg-vdiv-${ci}-${idx}-c${c}-r${r}`,
+        role: "divider-panel",
+        pos: [x, rCy, D / 2],
+        size: [t, Math.max(0.01, subH - t), D - t],
+        color: ROLE_COLORS["divider-panel"],
+        meta: { column: ci, cell: metaCell },
+      });
+    }
+  }
+
+  // Horizontal dividers between subcell rows
+  for (let r = 0; r < rows - 1; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (!isSubActive(r, c) && !isSubActive(r + 1, c)) continue;
+      const cLeft = cx - innerW / 2 + c * subW;
+      const cCx = cLeft + subW / 2;
+      const y = bottom + (r + 1) * subH;
+      boxes.push({
+        id: `sg-hdiv-${ci}-${idx}-r${r}-c${c}`,
+        role: "shelf",
+        pos: [cCx, y, D / 2],
+        size: [Math.max(0.01, subW - t), t, D - t],
+        color: ROLE_COLORS["shelf"],
+        meta: { column: ci, cell: metaCell },
+      });
+    }
+  }
+
+  // Back panels for each active subcell
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (!isSubActive(r, c)) continue;
+      const cLeft = cx - innerW / 2 + c * subW;
+      const cCx = cLeft + subW / 2;
+      const rBottom = bottom + r * subH;
+      const rCy = rBottom + subH / 2;
+      boxes.push({
+        id: `sg-back-${ci}-${idx}-r${r}-c${c}`,
+        role: "back",
+        pos: [cCx, rCy, D - t / 2],
+        size: [Math.max(0.01, subW - t), Math.max(0.01, subH - t), t],
+        color: ROLE_COLORS.back,
+        meta: { column: ci, cell: metaCell },
+      });
+    }
+  }
+}
+
 export function buildAssembly(
   doc: StudioDocument,
   state: AssemblyState = "closed",
@@ -484,33 +566,68 @@ export function buildAssembly(
   // Maps cell.id → its computed 3D bounds (filled during the main loop below)
   const cellBoundsMap = new Map<string, { bottom: number; top: number; cx: number; innerW: number; ci: number }>();
 
-  // Vertical sides: one panel per boundary per module.
-  // Height at boundary b for module m = max of adjacent columns' module-m height.
-  // Skip a side boundary if both adjacent columns are noCarcass or absent.
+  // Vertical sides: cell-aware segments.
+  // For each boundary between columns, collect Y events from both sides,
+  // then emit one panel per contiguous run of active cells.
   for (let b = 0; b < xs.length; b++) {
     const leftCol = b > 0 ? doc.columns[b - 1] : undefined;
     const rightCol = b < doc.columns.length ? doc.columns[b] : undefined;
     const leftIsCarcass = leftCol && !leftCol.noCarcass;
     const rightIsCarcass = rightCol && !rightCol.noCarcass;
-    if (!leftIsCarcass && !rightIsCarcass) continue; // both sides are noCarcass or absent
+    if (!leftIsCarcass && !rightIsCarcass) continue;
+
     for (let mi = 0; mi < maxModules; mi++) {
       const leftMod = b > 0 ? columnModules[b - 1][mi] : undefined;
       const rightMod = b < doc.columns.length ? columnModules[b][mi] : undefined;
       if (!leftMod && !rightMod) continue;
-      const h = Math.max(leftMod?.height ?? 0, rightMod?.height ?? 0);
-      if (h <= 0) continue;
-      const startY = leftMod?.startY ?? rightMod!.startY;
-      boxes.push({
-        id: `side-${b}-m${mi}`,
-        role: "side",
-        pos: [xs[b], startY + h / 2, D / 2],
-        size: [t, h, D],
-        color: ROLE_COLORS.side,
-        meta: {
-          side: b === 0 ? "left" : b === xs.length - 1 ? "right" : undefined,
-          module: mi,
-        },
-      });
+
+      // Collect all Y boundaries from both columns' cells
+      const ySet = new Set<number>();
+      if (leftMod) {
+        let y = leftMod.startY;
+        ySet.add(y);
+        for (const cell of leftMod.cells) { y += cellH(cell); ySet.add(y); }
+      }
+      if (rightMod) {
+        let y = rightMod.startY;
+        ySet.add(y);
+        for (const cell of rightMod.cells) { y += cellH(cell); ySet.add(y); }
+      }
+      const ys = Array.from(ySet).sort((a, b) => a - b);
+
+      // Emit merged side panel segments for contiguous active regions
+      let segStart: number | null = null;
+      const metaSide = b === 0 ? "left" : b === xs.length - 1 ? "right" : undefined;
+
+      const emitSegment = (segEnd: number, idx: number) => {
+        const segH = segEnd - segStart!;
+        if (segH <= 0) return;
+        boxes.push({
+          id: `side-${b}-m${mi}-s${idx}`,
+          role: "side",
+          pos: [xs[b], segStart! + segH / 2, D / 2],
+          size: [t, segH, D],
+          color: ROLE_COLORS.side,
+          meta: { side: metaSide, module: mi },
+        });
+        segStart = null;
+      };
+
+      for (let i = 0; i < ys.length - 1; i++) {
+        const yMid = (ys[i] + ys[i + 1]) / 2;
+        const lCell = leftMod ? getCellAtY(leftMod, yMid) : null;
+        const rCell = rightMod ? getCellAtY(rightMod, yMid) : null;
+        const active =
+          (lCell && isCellActive(lCell) && !!leftIsCarcass) ||
+          (rCell && isCellActive(rCell) && !!rightIsCarcass);
+
+        if (active) {
+          if (segStart === null) segStart = ys[i];
+        } else if (segStart !== null) {
+          emitSegment(ys[i], i);
+        }
+      }
+      if (segStart !== null) emitSegment(ys[ys.length - 1], ys.length);
     }
   }
 
@@ -533,11 +650,18 @@ export function buildAssembly(
         deckCenters.push(j < k ? startY + cumH : startY + totalH - t / 2);
       }
 
+      // Which decks to generate depends on adjacent cell active states
+      const generateDeck = (j: number): boolean => {
+        if (k === 0) return false;
+        if (j === 0) return isCellActive(mod.cells[0]);
+        if (j === k) return isCellActive(mod.cells[k - 1]);
+        return isCellActive(mod.cells[j - 1]) || isCellActive(mod.cells[j]);
+      };
+
       if (!col.noCarcass) {
         deckCenters.forEach((dc, j) => {
-          // Skip decks absorbed into a horizontal merged spanning panel
           if (skipDeck.has(`${ci}/${mi}/${j}`)) return;
-
+          if (!generateDeck(j)) return;
           boxes.push({
             id: `deck-${ci}-m${mi}-${j}`,
             role: "deck",
@@ -555,9 +679,17 @@ export function buildAssembly(
         const top = deckCenters[localIdx + 1] - t / 2;
         const cyc = (bottom + top) / 2;
 
-        // Individual back panels are skipped for grouped column pairs or noCarcass columns —
-        // a single spanning back panel is generated per module after the main loop.
-        if (!col.noCarcass && !groupedBackSkip.has(`${ci}/${globalIdx}`)) {
+        // Skip all panels for inactive (void) cells
+        if (!isCellActive(cell)) {
+          cellBoundsMap.set(cell.id, { bottom, top, cx, innerW, ci });
+          return;
+        }
+
+        const isGroupedBack = groupedBackSkip.has(`${ci}/${globalIdx}`);
+
+        // Back panel: skip for noCarcass, grouped columns, or subgrid cells
+        // (subgrid generates its own per-subcell backs; grouped gets a spanning back)
+        if (!col.noCarcass && !isGroupedBack && !cell.subgrid) {
           boxes.push({
             id: `back-${ci}-${globalIdx}`,
             role: "back",
@@ -568,15 +700,20 @@ export function buildAssembly(
           });
         }
 
-        // Record cell bounds for spanning front post-processing
         cellBoundsMap.set(cell.id, { bottom, top, cx, innerW, ci });
 
         const before = boxes.length;
-        addCellContent(boxes, cell, {
-          cx, innerW, bottom, top, D, t, ci, idx: globalIdx, state,
-          skipFront: spanSkipCells.has(cell.id),
-        });
-        // Tag newly added content boxes with their module index
+        if (cell.subgrid) {
+          addSubgridContent(boxes, cell, { cx, innerW, bottom, top, D, t, ci, idx: globalIdx, state });
+          if (!spanSkipCells.has(cell.id)) {
+            addFront(boxes, cellFront(cell), { cx, innerW, cyc, ch: Math.max(0.02, top - bottom), top, t, ci, idx: globalIdx, gap: 0.003, state });
+          }
+        } else {
+          addCellContent(boxes, cell, {
+            cx, innerW, bottom, top, D, t, ci, idx: globalIdx, state,
+            skipFront: spanSkipCells.has(cell.id),
+          });
+        }
         for (let i = before; i < boxes.length; i++) {
           boxes[i] = { ...boxes[i], meta: { ...(boxes[i].meta ?? {}), module: mi } };
         }
