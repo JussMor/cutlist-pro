@@ -3,16 +3,38 @@
 import { Box, ChevronLeft } from "lucide-react";
 import { useState } from "react";
 
-import { useStudioStore } from "@/store/studioStore";
+import { useStudioStore, type FurnitureMode } from "@/store/studioStore";
 
 import { Viewer3D } from "../viewer/Viewer3D";
 import { FacadeGrid } from "./FacadeGrid";
 import { GlobalControlsBar } from "./GlobalControlsBar";
 import { SelectionInspector } from "./SelectionInspector";
 
+const MODE_LABELS: Record<FurnitureMode, string> = {
+  cabinet: "Cabinet",
+  desk:    "Desk",
+  door:    "Door",
+  vanity:  "Vanity",
+  column:  "Column",
+};
+
+function ComingSoon({ mode }: { mode: FurnitureMode }) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+      <p className="text-lg font-medium text-[#d7dde9]">{MODE_LABELS[mode]}</p>
+      <p className="text-sm text-[#9aa4b6]">Coming soon</p>
+    </div>
+  );
+}
+
 export function DesignPane() {
-  const hasSelection = useStudioStore((s) => s.selection.length > 0);
+  const hasSelection   = useStudioStore((s) => s.selection.length > 0);
+  const furnitureMode  = useStudioStore((s) => s.furnitureMode);
   const [mobileView, setMobileView] = useState<"2d" | "3d">("2d");
+
+  if (furnitureMode !== "cabinet") {
+    return <ComingSoon mode={furnitureMode} />;
+  }
 
   return (
     <div className="h-full">

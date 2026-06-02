@@ -28,6 +28,7 @@ import {
   type RenderMode,
 } from "@/store/studioStore";
 
+import { FurnitureModeSelector } from "./FurnitureModeSelector";
 import { StudioTabs } from "./StudioTabs";
 
 const MODES: { id: RenderMode; icon: typeof Box; label: string }[] = [
@@ -240,62 +241,76 @@ export function StudioTopNav() {
             setColorMode={setColorMode}
           />
         </div>
+        {/* Row 3: furniture mode (design only) */}
+        {activeTab === "design" && (
+          <div className="flex justify-center border-t border-[#1c2330] px-3 py-1.5">
+            <FurnitureModeSelector />
+          </div>
+        )}
       </div>
 
-      {/* ── Desktop layout (≥ md): single row ── */}
-      <div className="hidden items-center justify-between gap-4 px-4 py-2.5 md:flex">
-        <div className="flex min-w-0 items-center gap-2">
-          <Link
-            href="/"
-            className="flex size-7 items-center justify-center rounded-full text-[#9aa4b6] hover:bg-[#11151d] hover:text-[#d7dde9]"
-            title="Volver"
-          >
-            <ChevronLeft className="size-4" />
-          </Link>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onBlur={() => void handleSave()}
-            onKeyDown={(e) => {
-              if (e.key !== "Enter") return;
-              e.currentTarget.blur();
-            }}
-            aria-label="Document title"
-            className="w-44 truncate bg-transparent text-sm font-medium text-[#d7dde9] outline-none placeholder:text-[#7d879a]"
-          />
-          {moreMenu}
-        </div>
+      {/* ── Desktop layout (≥ md): single row + furniture sub-row ── */}
+      <div className="hidden md:block">
+        <div className="flex items-center justify-between gap-4 px-4 py-2.5">
+          <div className="flex min-w-0 items-center gap-2">
+            <Link
+              href="/"
+              className="flex size-7 items-center justify-center rounded-full text-[#9aa4b6] hover:bg-[#11151d] hover:text-[#d7dde9]"
+              title="Volver"
+            >
+              <ChevronLeft className="size-4" />
+            </Link>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={() => void handleSave()}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                e.currentTarget.blur();
+              }}
+              aria-label="Document title"
+              className="w-44 truncate bg-transparent text-sm font-medium text-[#d7dde9] outline-none placeholder:text-[#7d879a]"
+            />
+            {moreMenu}
+          </div>
 
-        <StudioTabs />
+          <StudioTabs />
 
-        <div className="flex items-center gap-2">
-          <ViewToolbar
-            activeTab={activeTab}
-            renderMode={renderMode}
-            setRenderMode={setRenderMode}
-            colorMode={colorMode}
-            setColorMode={setColorMode}
-          />
-          {status && (
-            <span className="text-xs text-[#84c7a6]">{status}</span>
-          )}
-          <Button
-            variant="outline"
-            onClick={() => void handleSave()}
-            disabled={saving}
-            className="gap-1.5"
-          >
-            Save
-          </Button>
-          <Button
-            onClick={() => void handlePublish()}
-            disabled={saving}
-            className="gap-1.5 bg-[#e8eaee] text-[#0b0e14] hover:bg-white"
-          >
-            <Upload className="size-4" />
-            Publish
-          </Button>
+          <div className="flex items-center gap-2">
+            <ViewToolbar
+              activeTab={activeTab}
+              renderMode={renderMode}
+              setRenderMode={setRenderMode}
+              colorMode={colorMode}
+              setColorMode={setColorMode}
+            />
+            {status && (
+              <span className="text-xs text-[#84c7a6]">{status}</span>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => void handleSave()}
+              disabled={saving}
+              className="gap-1.5"
+            >
+              Save
+            </Button>
+            <Button
+              onClick={() => void handlePublish()}
+              disabled={saving}
+              className="gap-1.5 bg-[#e8eaee] text-[#0b0e14] hover:bg-white"
+            >
+              <Upload className="size-4" />
+              Publish
+            </Button>
+          </div>
         </div>
+        {/* Furniture mode sub-row (design only) */}
+        {activeTab === "design" && (
+          <div className="flex justify-center border-t border-[#1c2330] px-4 py-1.5">
+            <FurnitureModeSelector />
+          </div>
+        )}
       </div>
     </header>
   );
