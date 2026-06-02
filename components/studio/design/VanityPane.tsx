@@ -70,7 +70,6 @@ function VanityDiagram({ cfg }: { cfg: VanityConfig }) {
 
   // sink cutout on top face
   const cutW = cfg.cutoutWidth * scale;
-  const cutX2 = topX + topW / 2 + cutW / 2; // right edge of cutout
 
   // double sink
   const sinkSpacing = (topW - cutW * 2) / 3;

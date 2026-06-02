@@ -74,7 +74,6 @@ function ColumnDiagram({ cfg }: { cfg: ColumnConfig }) {
   const show4 = cfg.exposedSides === "4-full";
   const show3 = cfg.exposedSides === "3-wall";
   const showCorner = cfg.exposedSides === "2-corner";
-  const show1 = cfg.exposedSides === "1";
 
   const panelFill  = "#1a2133";
   const panelStroke = "#3a4869";
