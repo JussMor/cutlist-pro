@@ -38,12 +38,14 @@ import {
 export type StudioTab = "design" | "cutlist";
 export type RenderMode = "closed" | "open" | "expanded";
 export type ColorMode = "colored" | "uncolored";
+export type FurnitureMode = "cabinet" | "desk" | "door" | "vanity" | "column";
 
 interface StudioState {
   doc: StudioDocument;
   activeTab: StudioTab;
   renderMode: RenderMode;
   colorMode: ColorMode;
+  furnitureMode: FurnitureMode;
   selection: string[]; // selected cell ids
   saving: boolean;
   publishedAt?: number;
@@ -51,6 +53,7 @@ interface StudioState {
   setActiveTab: (tab: StudioTab) => void;
   setRenderMode: (mode: RenderMode) => void;
   setColorMode: (mode: ColorMode) => void;
+  setFurnitureMode: (mode: FurnitureMode) => void;
   setTitle: (title: string) => void;
 
   setSelection: (ids: string[]) => void;
@@ -96,12 +99,14 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   activeTab: "design",
   renderMode: "open",
   colorMode: "colored",
+  furnitureMode: "cabinet",
   selection: [],
   saving: false,
 
   setActiveTab: (activeTab) => set({ activeTab }),
   setRenderMode: (renderMode) => set({ renderMode }),
   setColorMode: (colorMode) => set({ colorMode }),
+  setFurnitureMode: (furnitureMode) => set({ furnitureMode }),
   setTitle: (title) =>
     set((s) => ({ doc: { ...s.doc, title, updatedAt: Date.now() } })),
 

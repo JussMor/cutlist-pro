@@ -6,13 +6,23 @@ import { useState } from "react";
 import { useStudioStore } from "@/store/studioStore";
 
 import { Viewer3D } from "../viewer/Viewer3D";
+import { ColumnPane } from "./ColumnPane";
+import { DeskPane } from "./DeskPane";
+import { DoorPane } from "./DoorPane";
 import { FacadeGrid } from "./FacadeGrid";
 import { GlobalControlsBar } from "./GlobalControlsBar";
 import { SelectionInspector } from "./SelectionInspector";
+import { VanityPane } from "./VanityPane";
 
 export function DesignPane() {
-  const hasSelection = useStudioStore((s) => s.selection.length > 0);
+  const hasSelection   = useStudioStore((s) => s.selection.length > 0);
+  const furnitureMode  = useStudioStore((s) => s.furnitureMode);
   const [mobileView, setMobileView] = useState<"2d" | "3d">("2d");
+
+  if (furnitureMode === "desk")    return <DeskPane />;
+  if (furnitureMode === "door")    return <DoorPane />;
+  if (furnitureMode === "vanity")  return <VanityPane />;
+  if (furnitureMode === "column")  return <ColumnPane />;
 
   return (
     <div className="h-full">
