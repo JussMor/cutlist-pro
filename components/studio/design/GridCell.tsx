@@ -10,9 +10,9 @@ import { cn } from "@/lib/utils";
 import type { ColorMode } from "@/store/studioStore";
 
 interface Palette {
-  front: string; // door / drawer front fill
-  knob: string;  // hardware dot
-  line: string;  // shelf / divider line
+  front: string;
+  knob: string;
+  line: string;
 }
 
 const PALETTES: Record<ColorMode, Palette> = {
@@ -26,14 +26,17 @@ export function GridCell({
   selected,
   onSelect,
   hideFront,
+  onToggleSubGridCell,
 }: {
   cell: StudioCell;
   colorMode: ColorMode;
   selected: boolean;
   onSelect: (id: string, additive: boolean) => void;
-  hideFront?: boolean; // true when this cell's door is covered by a spanning front above
+  hideFront?: boolean;
+  onToggleSubGridCell?: (cellId: string, row: number, col: number) => void;
 }) {
   const pal = PALETTES[colorMode];
+  const isVoid = cell.active === false;
   const drawerCount = Math.max(1, cell.drawerCount ?? 1);
   const shelfCount = Math.max(1, cell.shelfCount ?? 1);
   const dividerCount = Math.max(1, cell.dividerCount ?? 1);
@@ -41,7 +44,6 @@ export function GridCell({
   const front = cellFront(cell);
   const doorOpacity = interior === "empty" ? 1 : 0.82;
 
-  // Base: DEFAULT_CELL_HEIGHT (30 cm) = 40 px. Min 20 px keeps tiny cells clickable.
   const cellHeightPx = Math.max(20, Math.round((cell.height / DEFAULT_CELL_HEIGHT) * 40));
 
   return (
@@ -53,80 +55,142 @@ export function GridCell({
       }}
       style={{ height: cellHeightPx }}
       className={cn(
-        "relative w-20 border bg-[#12100f] transition-all",
-        selected
-          ? "z-10 border-[#f4b450] ring-2 ring-[#f4b450]/70"
-          : "border-[#5b5a58] hover:border-[#8d8985]",
+        "relative w-20 border transition-all",
+        isVoid
+          ? selected
+            ? "z-10 border-[#f4b450] bg-[#0a0e15] ring-2 ring-[#f4b450]/70"
+            : "border-[#2a3450] bg-[#0a0e15] hover:border-[#3a4660]"
+          : selected
+            ? "z-10 border-[#f4b450] bg-[#12100f] ring-2 ring-[#f4b450]/70"
+            : "border-[#5b5a58] bg-[#12100f] hover:border-[#8d8985]",
       )}
     >
-      {/* ── Interior (drawn first, behind any door) ── */}
-      {interior === "drawer" && (
-        <div className="absolute inset-1.5 flex flex-col-reverse gap-1">
-          {Array.from({ length: drawerCount }).map((_, i) => (
-            <div
-              key={i}
-              className="relative flex-1 rounded-[1px] border border-black/30"
-              style={{ background: pal.front }}
-            >
-              <span
-                className="absolute left-1/2 top-1.5 size-1.5 -translate-x-1/2 rounded-full"
-                style={{ background: pal.knob }}
-              />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {interior === "shelf" && (
-        <div className="absolute inset-x-2 inset-y-2 flex flex-col justify-evenly">
-          {Array.from({ length: shelfCount }).map((_, i) => (
-            <span key={i} className="h-1 rounded-full" style={{ background: pal.line }} />
-          ))}
-        </div>
-      )}
-
-      {interior === "hanging" && (
-        <div className="absolute inset-1.5 flex flex-col">
-          {/* Rail bar */}
-          <div className="h-1.5 rounded-sm" style={{ background: pal.line, opacity: 0.9 }} />
-          {/* Hanging bars */}
-          <div className="flex flex-1 items-start justify-evenly px-1 pt-1">
-            {Array.from({ length: Math.max(3, Math.floor(cell.height / 10)) }).map((_, i) => (
-              <div
-                key={i}
-                className="w-0.5 rounded-b"
-                style={{ background: pal.line, height: "42%", opacity: 0.65 }}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {interior === "divider" && (
-        <div className="absolute inset-1.5 flex items-stretch justify-evenly">
-          {Array.from({ length: dividerCount }).map((_, i) => (
-            <div
-              key={i}
-              className="w-0.5 self-stretch rounded-full"
-              style={{ background: pal.line }}
-            />
-          ))}
-        </div>
-      )}
-
-      {interior === "appliance" && (
-        <div
-          className="absolute inset-2 flex items-center justify-center rounded border-2 border-dashed"
-          style={{ borderColor: pal.line, opacity: 0.55 }}
+      {/* ── Void indicator ── */}
+      {isVoid && (
+        <svg
+          className="absolute inset-0 h-full w-full opacity-20"
+          xmlns="http://www.w3.org/2000/svg"
         >
-          <span className="select-none text-[10px]" style={{ color: pal.line }}>
-            ⬜
-          </span>
+          <defs>
+            <pattern id="void-hatch" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+              <line x1="0" y1="0" x2="0" y2="6" stroke="#7d879a" strokeWidth="1" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#void-hatch)" />
+        </svg>
+      )}
+
+      {/* ── Interior (only for active cells without subgrid) ── */}
+      {!isVoid && !cell.subgrid && (
+        <>
+          {interior === "drawer" && (
+            <div className="absolute inset-1.5 flex flex-col-reverse gap-1">
+              {Array.from({ length: drawerCount }).map((_, i) => (
+                <div
+                  key={i}
+                  className="relative flex-1 rounded-[1px] border border-black/30"
+                  style={{ background: pal.front }}
+                >
+                  <span
+                    className="absolute left-1/2 top-1.5 size-1.5 -translate-x-1/2 rounded-full"
+                    style={{ background: pal.knob }}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {interior === "shelf" && (
+            <div className="absolute inset-x-2 inset-y-2 flex flex-col justify-evenly">
+              {Array.from({ length: shelfCount }).map((_, i) => (
+                <span key={i} className="h-1 rounded-full" style={{ background: pal.line }} />
+              ))}
+            </div>
+          )}
+
+          {interior === "hanging" && (
+            <div className="absolute inset-1.5 flex flex-col">
+              <div className="h-1.5 rounded-sm" style={{ background: pal.line, opacity: 0.9 }} />
+              <div className="flex flex-1 items-start justify-evenly px-1 pt-1">
+                {Array.from({ length: Math.max(3, Math.floor(cell.height / 10)) }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="w-0.5 rounded-b"
+                    style={{ background: pal.line, height: "42%", opacity: 0.65 }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {interior === "divider" && (
+            <div className="absolute inset-1.5 flex items-stretch justify-evenly">
+              {Array.from({ length: dividerCount }).map((_, i) => (
+                <div
+                  key={i}
+                  className="w-0.5 self-stretch rounded-full"
+                  style={{ background: pal.line }}
+                />
+              ))}
+            </div>
+          )}
+
+          {interior === "appliance" && (
+            <div
+              className="absolute inset-2 flex items-center justify-center rounded border-2 border-dashed"
+              style={{ borderColor: pal.line, opacity: 0.55 }}
+            >
+              <span className="select-none text-[10px]" style={{ color: pal.line }}>
+                ⬜
+              </span>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── Subgrid overlay ── */}
+      {!isVoid && cell.subgrid && (
+        <div
+          className="absolute inset-0 grid"
+          style={{
+            gridTemplateColumns: `repeat(${cell.subgrid.cols}, 1fr)`,
+            gridTemplateRows: `repeat(${cell.subgrid.rows}, 1fr)`,
+          }}
+        >
+          {cell.subgrid.cells.map((sc) => {
+            const scInactive = sc.active === false;
+            return (
+              <button
+                key={sc.id}
+                type="button"
+                title={scInactive ? "Activar subceldilla" : "Vaciar subceldilla"}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleSubGridCell?.(cell.id, sc.row, sc.col);
+                }}
+                className={cn(
+                  "border border-[#2a3450]/40 transition-colors hover:border-[#f4b450]/60",
+                  scInactive ? "bg-[#060a10]" : "bg-transparent hover:bg-[#f4b450]/5",
+                )}
+              >
+                {scInactive && (
+                  <svg className="h-full w-full opacity-25" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                      <pattern id={`sg-hatch-${sc.id}`} patternUnits="userSpaceOnUse" width="4" height="4" patternTransform="rotate(45)">
+                        <line x1="0" y1="0" x2="0" y2="4" stroke="#7d879a" strokeWidth="0.8" />
+                      </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill={`url(#sg-hatch-${sc.id})`} />
+                  </svg>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
 
-      {/* ── Front door (drawn on top) ── */}
-      {!hideFront && front === "left" && (
+      {/* ── Front door (only for active cells) ── */}
+      {!isVoid && !cell.subgrid && !hideFront && front === "left" && (
         <span
           className="absolute inset-2 rounded-[1px] border-r-4 border-black/40"
           style={{ background: pal.front, opacity: doorOpacity }}
@@ -138,7 +202,7 @@ export function GridCell({
         </span>
       )}
 
-      {!hideFront && front === "right" && (
+      {!isVoid && !cell.subgrid && !hideFront && front === "right" && (
         <span
           className="absolute inset-2 rounded-[1px] border-l-4 border-black/40"
           style={{ background: pal.front, opacity: doorOpacity }}
@@ -150,7 +214,7 @@ export function GridCell({
         </span>
       )}
 
-      {!hideFront && front === "double" && (
+      {!isVoid && !cell.subgrid && !hideFront && front === "double" && (
         <span className="absolute inset-2 grid grid-cols-2 gap-1" style={{ opacity: doorOpacity }}>
           <span className="relative rounded-[1px]" style={{ background: pal.front }}>
             <span
@@ -167,7 +231,7 @@ export function GridCell({
         </span>
       )}
 
-      {!hideFront && front === "flip-up" && (
+      {!isVoid && !cell.subgrid && !hideFront && front === "flip-up" && (
         <span
           className="absolute inset-2 rounded-[1px] border-t-4 border-black/40"
           style={{ background: pal.front, opacity: doorOpacity }}

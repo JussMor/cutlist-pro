@@ -3,6 +3,7 @@
 import {
   ArrowUpDown,
   Columns2,
+  Grid2X2,
   Layers,
   PanelLeft,
   PanelRight,
@@ -61,6 +62,8 @@ export function SelectionInspector() {
   const toggleSpanningFront = useStudioStore((s) => s.toggleSpanningFront);
   const toggleOpenJoint = useStudioStore((s) => s.toggleOpenJoint);
   const toggleNoCarcass = useStudioStore((s) => s.toggleNoCarcass);
+  const toggleCellActive = useStudioStore((s) => s.toggleCellActive);
+  const setSubGrid = useStudioStore((s) => s.setSubGrid);
 
   if (selection.length === 0) return null;
 
@@ -351,6 +354,68 @@ export function SelectionInspector() {
               <Layers className="size-3.5" />
               {isNoCarcass ? "Sin carcasa" : "Con carcasa"}
             </button>
+          </>
+        )}
+
+        {/* Void toggle — available for any single cell */}
+        {cells.length === 1 && (
+          <>
+            <label className="text-[#7d879a]">Celda</label>
+            <button
+              type="button"
+              title={cells[0].active === false ? "Activar celda" : "Vaciar celda (hueco)"}
+              onClick={() => toggleCellActive(cells[0].id)}
+              className={cn(
+                "flex items-center justify-center gap-1.5 rounded-md border py-1.5 text-xs transition-colors",
+                cells[0].active === false
+                  ? "border-[#f4b450] bg-[#f4b450]/15 text-[#f4b450]"
+                  : "border-[#1f2735] text-[#7d879a] hover:border-[#3a4660] hover:text-[#d7dde9]",
+              )}
+            >
+              <Square className="size-3.5" />
+              {cells[0].active === false ? "Vacía" : "Vaciar"}
+            </button>
+          </>
+        )}
+
+        {/* Subgrid — available for a single active cell */}
+        {cells.length === 1 && cells[0].active !== false && (
+          <>
+            <label className="text-[#7d879a]">Subgrid</label>
+            <div className="flex items-center gap-1.5">
+              <Grid2X2 className="size-3.5 shrink-0 text-[#7d879a]" />
+              <Input
+                type="number"
+                min={1}
+                max={9}
+                title="Columnas"
+                placeholder="C"
+                defaultValue={cells[0].subgrid?.cols ?? 1}
+                key={`sg-cols-${cells[0].id}`}
+                className="h-7 w-12 px-1 text-center text-xs"
+                onChange={(e) => {
+                  const c = Math.max(1, Math.min(9, parseInt(e.target.value, 10) || 1));
+                  const r = cells[0].subgrid?.rows ?? 1;
+                  setSubGrid(cells[0].id, c, r);
+                }}
+              />
+              <span className="text-[#7d879a]">×</span>
+              <Input
+                type="number"
+                min={1}
+                max={9}
+                title="Filas"
+                placeholder="F"
+                defaultValue={cells[0].subgrid?.rows ?? 1}
+                key={`sg-rows-${cells[0].id}`}
+                className="h-7 w-12 px-1 text-center text-xs"
+                onChange={(e) => {
+                  const c = cells[0].subgrid?.cols ?? 1;
+                  const r = Math.max(1, Math.min(9, parseInt(e.target.value, 10) || 1));
+                  setSubGrid(cells[0].id, c, r);
+                }}
+              />
+            </div>
           </>
         )}
       </div>
