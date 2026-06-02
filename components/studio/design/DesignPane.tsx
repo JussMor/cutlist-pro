@@ -12,17 +12,15 @@ import { DoorPane } from "./DoorPane";
 import { FacadeGrid } from "./FacadeGrid";
 import { GlobalControlsBar } from "./GlobalControlsBar";
 import { SelectionInspector } from "./SelectionInspector";
-import { VanityPane } from "./VanityPane";
 
 export function DesignPane() {
   const hasSelection   = useStudioStore((s) => s.selection.length > 0);
   const furnitureMode  = useStudioStore((s) => s.furnitureMode);
   const [mobileView, setMobileView] = useState<"2d" | "3d">("2d");
 
-  if (furnitureMode === "desk")    return <DeskPane />;
-  if (furnitureMode === "door")    return <DoorPane />;
-  if (furnitureMode === "vanity")  return <VanityPane />;
-  if (furnitureMode === "column")  return <ColumnPane />;
+  if (furnitureMode === "desk")   return <DeskPane />;
+  if (furnitureMode === "door")   return <DoorPane />;
+  if (furnitureMode === "column") return <ColumnPane />;
 
   return (
     <div className="h-full">

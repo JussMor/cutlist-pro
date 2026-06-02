@@ -1,6 +1,6 @@
 "use client";
 
-import { Columns, LayoutTemplate, Laptop, PanelLeft, Waves } from "lucide-react";
+import { Columns, LayoutTemplate, Laptop, PanelLeft } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useStudioStore, type FurnitureMode } from "@/store/studioStore";
@@ -13,7 +13,6 @@ const FURNITURE_MODES: {
   { id: "cabinet", icon: LayoutTemplate, label: "Cabinet" },
   { id: "desk",    icon: Laptop,         label: "Desk" },
   { id: "door",    icon: PanelLeft,      label: "Door" },
-  { id: "vanity",  icon: Waves,          label: "Vanity" },
   { id: "column",  icon: Columns,        label: "Column" },
 ];
 
