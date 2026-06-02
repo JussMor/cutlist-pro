@@ -16,10 +16,13 @@ import {
   deleteCells as deleteCellsMut,
   deleteManualPanel as deleteManualPanelMut,
   setGlobals as setGlobalsMut,
+  setSubGrid as setSubGridMut,
+  toggleCellActive as toggleCellActiveMut,
   toggleMergedDeck as toggleMergedDeckMut,
   toggleNoCarcass as toggleNoCarcassMut,
   toggleSpanningFront as toggleSpanningFrontMut,
   toggleOpenJoint as toggleOpenJointMut,
+  toggleSubGridCell as toggleSubGridCellMut,
   updateBandingOverride as updateBandingOverrideMut,
   updateCells as updateCellsMut,
   updateColumnWidth,
@@ -68,6 +71,9 @@ interface StudioState {
   updateManualPanel: (id: string, patch: Partial<Omit<ManualPanel, "id">>) => void;
   deleteManualPanel: (id: string) => void;
   updateBandingOverride: (panelKey: string, banding: { top: boolean; bottom: boolean; left: boolean; right: boolean }) => void;
+  toggleCellActive: (cellId: string) => void;
+  setSubGrid: (cellId: string, cols: number, rows: number) => void;
+  toggleSubGridCell: (cellId: string, row: number, col: number) => void;
   toggleMergedDeck: (leftColId: string, rightColId: string, mi: number, j: number) => void;
   toggleSpanningFront: (colId: string, bottomCellId: string, topCellId: string) => void;
   toggleOpenJoint: (leftColId: string, rightColId: string) => void;
@@ -144,6 +150,12 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     set((s) => ({ doc: deleteManualPanelMut(s.doc, id) })),
   updateBandingOverride: (panelKey, banding) =>
     set((s) => ({ doc: updateBandingOverrideMut(s.doc, panelKey, banding) })),
+  toggleCellActive: (cellId) =>
+    set((s) => ({ doc: toggleCellActiveMut(s.doc, cellId) })),
+  setSubGrid: (cellId, cols, rows) =>
+    set((s) => ({ doc: setSubGridMut(s.doc, cellId, cols, rows) })),
+  toggleSubGridCell: (cellId, row, col) =>
+    set((s) => ({ doc: toggleSubGridCellMut(s.doc, cellId, row, col) })),
   toggleMergedDeck: (leftColId, rightColId, mi, j) =>
     set((s) => ({ doc: toggleMergedDeckMut(s.doc, leftColId, rightColId, mi, j) })),
   toggleSpanningFront: (colId, bottomCellId, topCellId) =>
