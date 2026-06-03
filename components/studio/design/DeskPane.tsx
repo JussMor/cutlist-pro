@@ -263,7 +263,7 @@ export function DeskPane() {
           </div>
         </div>
         <div className="relative min-h-[340px] bg-[#0b0e14]">
-          <Viewer3D />
+          <Viewer3D overrideBoxes={boxes3d} />
         </div>
       </div>
     </div>
