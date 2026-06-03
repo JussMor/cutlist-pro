@@ -167,6 +167,7 @@ export function doorToBoxes(cfg: DoorConfig): Box3D[] {
 // ─── Column ──────────────────────────────────────────────────────────────────
 
 export type ExposedSides = "1" | "2-corner" | "3-wall" | "4-full";
+export type FaceContent = "none" | "shelves" | "drawers";
 
 export interface ColumnConfig {
   colWidth: number;          // cm
@@ -178,12 +179,21 @@ export interface ColumnConfig {
   plinthHeight: number; // cm
   cap: boolean;
   capHeight: number;    // cm
+  // Per-face interior content
+  frontContent: FaceContent;
+  backContent: FaceContent;
+  leftContent: FaceContent;
+  rightContent: FaceContent;
+  contentCount: number; // shelf panels or drawer fronts per face
 }
 
 export const COLUMN_DEFAULTS: ColumnConfig = {
   colWidth: 30, colDepth: 30, claddingThickness: 18,
   height: 250, exposedSides: "4-full",
   plinth: false, plinthHeight: 10, cap: false, capHeight: 8,
+  frontContent: "none", backContent: "none",
+  leftContent: "none", rightContent: "none",
+  contentCount: 3,
 };
 
 export function columnToBoxes(cfg: ColumnConfig): Box3D[] {
@@ -199,6 +209,11 @@ export function columnToBoxes(cfg: ColumnConfig): Box3D[] {
   const show4 = cfg.exposedSides === "4-full";
   const show3 = cfg.exposedSides === "3-wall";
   const showL = cfg.exposedSides === "2-corner";
+  const showBack  = show4 || show3;
+  const showLeft  = show4 || show3 || showL;
+  const showRight = show4;
+
+  const n = Math.max(1, cfg.contentCount);
 
   const boxes: Box3D[] = [];
 
@@ -209,18 +224,67 @@ export function columnToBoxes(cfg: ColumnConfig): Box3D[] {
     boxes.push({ id: "col-cap", role: "deck", pos: [0, H - capH / 2, (CD + 2 * ct) / 2], size: [CW + 2 * ct, capH, CD + 2 * ct], color: "#2fd06a" });
   }
 
-  boxes.push({ id: "col-core",  role: "back", pos: [0, panelY, CD / 2],          size: [CW, panelH, CD], color: "#8a93a6" });
-  boxes.push({ id: "col-front", role: "side", pos: [0, panelY, CD + ct / 2],     size: [CW, panelH, ct], color: "#2f88ff" });
-
-  if (show4 || show3) {
-    boxes.push({ id: "col-back", role: "side", pos: [0, panelY, -ct / 2],        size: [CW, panelH, ct], color: "#2f88ff" });
+  // ── Cladding panels — only when the face has no interior content ──────────
+  // Front (always exposed; cladding omitted when face has drawers or shelves)
+  if (cfg.frontContent === "none") {
+    boxes.push({ id: "col-front", role: "side", pos: [0, panelY, CD + ct / 2],     size: [CW, panelH, ct], color: "#2f88ff" });
   }
-  if (show4 || show3 || showL) {
+  if (showBack && cfg.backContent === "none") {
+    boxes.push({ id: "col-back",  role: "side", pos: [0, panelY, -ct / 2],          size: [CW, panelH, ct], color: "#2f88ff" });
+  }
+  if (showLeft && cfg.leftContent === "none") {
     const leftX = show4 ? -(CW / 2 + ct / 2) : -CW / 2;
-    boxes.push({ id: "col-left", role: "side", pos: [leftX, panelY, CD / 2],     size: [ct, panelH, show4 ? CD + 2 * ct : CD], color: "#2f88ff" });
+    boxes.push({ id: "col-left",  role: "side", pos: [leftX, panelY, CD / 2],       size: [ct, panelH, show4 ? CD + 2 * ct : CD], color: "#2f88ff" });
   }
-  if (show4) {
+  if (showRight && cfg.rightContent === "none") {
     boxes.push({ id: "col-right", role: "side", pos: [CW / 2 + ct / 2, panelY, CD / 2], size: [ct, panelH, CD + 2 * ct], color: "#2f88ff" });
+  }
+
+  // ── Interior horizontal shelves (shared by all faces that have content) ───
+  const hasContent =
+    cfg.frontContent !== "none" ||
+    (showBack  && cfg.backContent  !== "none") ||
+    (showLeft  && cfg.leftContent  !== "none") ||
+    (showRight && cfg.rightContent !== "none");
+
+  if (hasContent) {
+    const interval = panelH / (n + 1);
+    for (let i = 1; i <= n; i++) {
+      boxes.push({
+        id: `col-shelf-${i}`,
+        role: "deck",
+        pos: [0, plinthH + interval * i, CD / 2],
+        size: [CW, ct, CD],
+        color: "#2fd06a",
+      });
+    }
+  }
+
+  // ── Drawer fronts — stacked on each face configured as "drawers" ──────────
+  function addDrawerFronts(faceId: string, posCenter: [number, number, number], lateral: boolean) {
+    const drawerH = panelH / n;
+    for (let i = 0; i < n; i++) {
+      const y = plinthH + drawerH * (i + 0.5);
+      const pos: [number, number, number] = [posCenter[0], y, posCenter[2]];
+      const size: [number, number, number] = lateral
+        ? [ct, drawerH - ct, CD]
+        : [CW, drawerH - ct, ct];
+      boxes.push({ id: `col-drawer-${faceId}-${i}`, role: "door", pos, size, color: "#f4b450" });
+    }
+  }
+
+  if (cfg.frontContent === "drawers") {
+    addDrawerFronts("front", [0, 0, CD + ct * 1.5], false);
+  }
+  if (showBack && cfg.backContent === "drawers") {
+    addDrawerFronts("back", [0, 0, -ct * 1.5], false);
+  }
+  if (showLeft && cfg.leftContent === "drawers") {
+    const leftX = show4 ? -(CW / 2 + ct * 1.5) : -(CW / 2 + ct * 0.5);
+    addDrawerFronts("left", [leftX, 0, CD / 2], true);
+  }
+  if (showRight && cfg.rightContent === "drawers") {
+    addDrawerFronts("right", [CW / 2 + ct * 1.5, 0, CD / 2], true);
   }
 
   return boxes;

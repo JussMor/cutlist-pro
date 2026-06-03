@@ -3,7 +3,7 @@
 import { Box, ChevronLeft } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { type ColumnConfig, type ExposedSides, columnToBoxes } from "@/lib/studio/furnitureGeometry";
+import { type ColumnConfig, type ExposedSides, type FaceContent, columnToBoxes } from "@/lib/studio/furnitureGeometry";
 import { cn } from "@/lib/utils";
 import { useStudioStore } from "@/store/studioStore";
 
@@ -87,7 +87,46 @@ function Field({ label, value, step = 1, onChange }: {
   );
 }
 
+const FACE_LABELS: Record<FaceContent, string> = {
+  none: "—",
+  shelves: "Repisas",
+  drawers: "Cajones",
+};
+
+function FaceContentRow({ label, value, onChange }: {
+  label: string; value: FaceContent; onChange: (v: FaceContent) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 py-0.5">
+      <span className="w-20 shrink-0 text-xs text-[#9aa4b6]">{label}</span>
+      <div className="flex flex-1 gap-1">
+        {(["none", "shelves", "drawers"] as FaceContent[]).map((t) => (
+          <button key={t} type="button" onClick={() => onChange(t)}
+            className={cn(
+              "flex-1 rounded-lg border py-1 text-[10px] transition",
+              value === t
+                ? "border-[#f4b450] bg-[#f4b450]/10 text-[#f4b450]"
+                : "border-[#1f2735] text-[#7d879a] hover:border-[#4a5568] hover:text-[#d7dde9]",
+            )}>
+            {FACE_LABELS[t]}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ColumnControls({ cfg, set }: { cfg: ColumnConfig; set: <K extends keyof ColumnConfig>(k: K, v: ColumnConfig[K]) => void }) {
+  const showBack  = cfg.exposedSides === "3-wall" || cfg.exposedSides === "4-full";
+  const showLeft  = cfg.exposedSides !== "1";
+  const showRight = cfg.exposedSides === "4-full";
+
+  const hasAnyContent =
+    cfg.frontContent !== "none" ||
+    (showBack  && cfg.backContent  !== "none") ||
+    (showLeft  && cfg.leftContent  !== "none") ||
+    (showRight && cfg.rightContent !== "none");
+
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
@@ -115,6 +154,21 @@ function ColumnControls({ cfg, set }: { cfg: ColumnConfig; set: <K extends keyof
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="rounded-xl border border-[#1f2735] bg-[#0d1119] p-3">
+        <div className="mb-2 text-[11px] uppercase tracking-wide text-[#7d879a]">Contenido por cara</div>
+        <div className="flex flex-col divide-y divide-[#1a2030]">
+          <FaceContentRow label="Frente"    value={cfg.frontContent} onChange={(v) => set("frontContent", v)} />
+          {showBack  && <FaceContentRow label="Trasera"   value={cfg.backContent}  onChange={(v) => set("backContent",  v)} />}
+          {showLeft  && <FaceContentRow label="Izquierda" value={cfg.leftContent}  onChange={(v) => set("leftContent",  v)} />}
+          {showRight && <FaceContentRow label="Derecha"   value={cfg.rightContent} onChange={(v) => set("rightContent", v)} />}
+        </div>
+        {hasAnyContent && (
+          <div className="mt-3">
+            <Field label="Cantidad" value={cfg.contentCount} onChange={(v) => set("contentCount", Math.max(1, Math.round(v)))} />
+          </div>
+        )}
       </div>
 
       <div className="rounded-xl border border-[#1f2735] bg-[#0d1119] p-3">
