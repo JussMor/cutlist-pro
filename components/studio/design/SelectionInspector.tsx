@@ -131,6 +131,12 @@ export function SelectionInspector() {
   const noCarcassEligible = cols.length === 1 ? cols[0] : null;
   const isNoCarcass = !!(noCarcassEligible?.noCarcass);
 
+  // ── Subgrid active — inside/door controls apply to the whole cell, not sub-cells ──
+  const hasActiveSubgrid =
+    cells.length === 1 &&
+    cells[0].active !== false &&
+    ((cells[0].subgrid?.cols ?? 1) > 1 || (cells[0].subgrid?.rows ?? 1) > 1);
+
   return (
     <div className="rounded-xl border border-[#1f2735] bg-[#0d1119]/90 p-4 shadow-lg backdrop-blur">
       <div className="mb-3 text-xs font-semibold text-[#d7dde9]">
@@ -138,7 +144,7 @@ export function SelectionInspector() {
       </div>
       <div className="grid grid-cols-[64px_1fr] items-center gap-x-3 gap-y-2 text-xs">
         {/* Interior type */}
-        <label className="text-[#7d879a]">Inside</label>
+        <label className={cn("text-[#7d879a]", hasActiveSubgrid && "opacity-40")}>Inside</label>
         <Select
           value={interiorValue}
           onValueChange={(v) =>
@@ -149,8 +155,9 @@ export function SelectionInspector() {
               ...(v === "divider" ? { dividerCount: 1 } : {}),
             })
           }
+          disabled={hasActiveSubgrid}
         >
-          <SelectTrigger className="border-[#f4b450]">
+          <SelectTrigger className={cn("border-[#f4b450]", hasActiveSubgrid && "opacity-40 cursor-not-allowed")}>
             <SelectValue placeholder="mixed" />
           </SelectTrigger>
           <SelectContent>
@@ -163,8 +170,8 @@ export function SelectionInspector() {
         </Select>
 
         {/* Door type */}
-        <label className="text-[#7d879a]">Door</label>
-        <div className="flex gap-1">
+        <label className={cn("text-[#7d879a]", hasActiveSubgrid && "opacity-40")}>Door</label>
+        <div className={cn("flex gap-1", hasActiveSubgrid && "opacity-40 pointer-events-none")}>
           {FRONTS.map(({ value, label, Icon }) => (
             <button
               key={value}
@@ -357,16 +364,20 @@ export function SelectionInspector() {
           </>
         )}
 
-        {/* Void toggle — available for any single cell */}
-        {cells.length === 1 && (
-          <>
-            <label className="text-[#7d879a]">Celda</label>
+      </div>
+
+      {/* ── Shape section — void + subgrid, single cell only ── */}
+      {cells.length === 1 && (
+        <div className="mt-3 border-t border-[#1c2330] pt-3">
+          <div className="mb-2 text-[10px] uppercase tracking-wide text-[#4a5568]">Shape</div>
+          <div className="flex items-center gap-2">
+            {/* Void toggle */}
             <button
               type="button"
               title={cells[0].active === false ? "Activar celda" : "Vaciar celda (hueco)"}
               onClick={() => toggleCellActive(cells[0].id)}
               className={cn(
-                "flex items-center justify-center gap-1.5 rounded-md border py-1.5 text-xs transition-colors",
+                "flex items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-xs transition-colors",
                 cells[0].active === false
                   ? "border-[#f4b450] bg-[#f4b450]/15 text-[#f4b450]"
                   : "border-[#1f2735] text-[#7d879a] hover:border-[#3a4660] hover:text-[#d7dde9]",
@@ -375,50 +386,47 @@ export function SelectionInspector() {
               <Square className="size-3.5" />
               {cells[0].active === false ? "Vacía" : "Vaciar"}
             </button>
-          </>
-        )}
 
-        {/* Subgrid — available for a single active cell */}
-        {cells.length === 1 && cells[0].active !== false && (
-          <>
-            <label className="text-[#7d879a]">Subgrid</label>
-            <div className="flex items-center gap-1.5">
-              <Grid2X2 className="size-3.5 shrink-0 text-[#7d879a]" />
-              <Input
-                type="number"
-                min={1}
-                max={9}
-                title="Columnas"
-                placeholder="C"
-                defaultValue={cells[0].subgrid?.cols ?? 1}
-                key={`sg-cols-${cells[0].id}`}
-                className="h-7 w-12 px-1 text-center text-xs"
-                onChange={(e) => {
-                  const c = Math.max(1, Math.min(9, parseInt(e.target.value, 10) || 1));
-                  const r = cells[0].subgrid?.rows ?? 1;
-                  setSubGrid(cells[0].id, c, r);
-                }}
-              />
-              <span className="text-[#7d879a]">×</span>
-              <Input
-                type="number"
-                min={1}
-                max={9}
-                title="Filas"
-                placeholder="F"
-                defaultValue={cells[0].subgrid?.rows ?? 1}
-                key={`sg-rows-${cells[0].id}`}
-                className="h-7 w-12 px-1 text-center text-xs"
-                onChange={(e) => {
-                  const c = cells[0].subgrid?.cols ?? 1;
-                  const r = Math.max(1, Math.min(9, parseInt(e.target.value, 10) || 1));
-                  setSubGrid(cells[0].id, c, r);
-                }}
-              />
-            </div>
-          </>
-        )}
-      </div>
+            {/* Subgrid dimensions — active cells only */}
+            {cells[0].active !== false && (
+              <div className="flex items-center gap-1 text-xs text-[#7d879a]">
+                <Grid2X2 className="size-3.5 shrink-0" />
+                <Input
+                  type="number"
+                  min={1}
+                  max={9}
+                  title="Columnas subgrid"
+                  placeholder="C"
+                  defaultValue={cells[0].subgrid?.cols ?? 1}
+                  key={`sg-cols-${cells[0].id}`}
+                  className="h-7 w-12 px-1 text-center text-xs"
+                  onChange={(e) => {
+                    const c = Math.max(1, Math.min(9, parseInt(e.target.value, 10) || 1));
+                    const r = cells[0].subgrid?.rows ?? 1;
+                    setSubGrid(cells[0].id, c, r);
+                  }}
+                />
+                <span>×</span>
+                <Input
+                  type="number"
+                  min={1}
+                  max={9}
+                  title="Filas subgrid"
+                  placeholder="F"
+                  defaultValue={cells[0].subgrid?.rows ?? 1}
+                  key={`sg-rows-${cells[0].id}`}
+                  className="h-7 w-12 px-1 text-center text-xs"
+                  onChange={(e) => {
+                    const c = cells[0].subgrid?.cols ?? 1;
+                    const r = Math.max(1, Math.min(9, parseInt(e.target.value, 10) || 1));
+                    setSubGrid(cells[0].id, c, r);
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <Button variant="destructive" className="mt-3 w-full" onClick={remove}>
         <Trash2 className="size-3.5" />
