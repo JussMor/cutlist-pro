@@ -131,6 +131,12 @@ export function SelectionInspector() {
   const noCarcassEligible = cols.length === 1 ? cols[0] : null;
   const isNoCarcass = !!(noCarcassEligible?.noCarcass);
 
+  // ── Subgrid active — inside/door controls apply to the whole cell, not sub-cells ──
+  const hasActiveSubgrid =
+    cells.length === 1 &&
+    cells[0].active !== false &&
+    ((cells[0].subgrid?.cols ?? 1) > 1 || (cells[0].subgrid?.rows ?? 1) > 1);
+
   return (
     <div className="rounded-xl border border-[#1f2735] bg-[#0d1119]/90 p-4 shadow-lg backdrop-blur">
       <div className="mb-3 text-xs font-semibold text-[#d7dde9]">
@@ -138,7 +144,7 @@ export function SelectionInspector() {
       </div>
       <div className="grid grid-cols-[64px_1fr] items-center gap-x-3 gap-y-2 text-xs">
         {/* Interior type */}
-        <label className="text-[#7d879a]">Inside</label>
+        <label className={cn("text-[#7d879a]", hasActiveSubgrid && "opacity-40")}>Inside</label>
         <Select
           value={interiorValue}
           onValueChange={(v) =>
@@ -149,8 +155,9 @@ export function SelectionInspector() {
               ...(v === "divider" ? { dividerCount: 1 } : {}),
             })
           }
+          disabled={hasActiveSubgrid}
         >
-          <SelectTrigger className="border-[#f4b450]">
+          <SelectTrigger className={cn("border-[#f4b450]", hasActiveSubgrid && "opacity-40 cursor-not-allowed")}>
             <SelectValue placeholder="mixed" />
           </SelectTrigger>
           <SelectContent>
@@ -163,8 +170,8 @@ export function SelectionInspector() {
         </Select>
 
         {/* Door type */}
-        <label className="text-[#7d879a]">Door</label>
-        <div className="flex gap-1">
+        <label className={cn("text-[#7d879a]", hasActiveSubgrid && "opacity-40")}>Door</label>
+        <div className={cn("flex gap-1", hasActiveSubgrid && "opacity-40 pointer-events-none")}>
           {FRONTS.map(({ value, label, Icon }) => (
             <button
               key={value}
