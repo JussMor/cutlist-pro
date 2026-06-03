@@ -169,12 +169,14 @@ export function GridCell({
                   onToggleSubGridCell?.(cell.id, sc.row, sc.col);
                 }}
                 className={cn(
-                  "border border-[#2a3450]/40 transition-colors hover:border-[#f4b450]/60",
-                  scInactive ? "bg-[#060a10]" : "bg-transparent hover:bg-[#f4b450]/5",
+                  "border transition-colors hover:border-[#f4b450]/60",
+                  scInactive
+                    ? "border-[#2a3450] bg-[#0a0e15]"
+                    : "border-[#2a3450]/40 bg-transparent hover:bg-[#f4b450]/5",
                 )}
               >
                 {scInactive && (
-                  <svg className="h-full w-full opacity-25" xmlns="http://www.w3.org/2000/svg">
+                  <svg className="h-full w-full opacity-20" xmlns="http://www.w3.org/2000/svg">
                     <defs>
                       <pattern id={`sg-hatch-${sc.id}`} patternUnits="userSpaceOnUse" width="4" height="4" patternTransform="rotate(45)">
                         <line x1="0" y1="0" x2="0" y2="4" stroke="#7d879a" strokeWidth="0.8" />
