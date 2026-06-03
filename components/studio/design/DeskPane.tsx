@@ -1,8 +1,9 @@
 "use client";
 
 import { Box, ChevronLeft } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
+import type { Box3D } from "@/lib/studio/geometry";
 import { cn } from "@/lib/utils";
 
 import { Viewer3D } from "../viewer/Viewer3D";
@@ -28,6 +29,83 @@ const DEFAULTS: DeskConfig = {
   legThickness: 18, legInset: 0,
   apron: false, apronHeight: 70, modesty: false,
 };
+
+// ─── 3D Geometry ────────────────────────────────────────────────────────────
+
+const mm3 = (v: number) => v / 1000;
+const cm3 = (v: number) => v / 100;
+
+function deskToBoxes(cfg: DeskConfig): Box3D[] {
+  const W = cm3(cfg.width);
+  const D = cm3(cfg.depth);
+  const H = cm3(cfg.height);
+  const topT = mm3(cfg.topThickness);
+  const legT = mm3(cfg.legThickness);
+  const inset = cm3(cfg.legInset);
+  const apronH = cfg.apron ? mm3(cfg.apronHeight) : 0;
+  const legH = H - topT - apronH;
+
+  const boxes: Box3D[] = [];
+
+  // Tabletop
+  boxes.push({
+    id: "desk-top",
+    role: "deck",
+    pos: [0, H - topT / 2, D / 2],
+    size: [W, topT, D],
+    color: "#2fd06a",
+  });
+
+  // Apron (front rail between legs)
+  if (cfg.apron) {
+    const apronW = W - 2 * (inset + legT);
+    const apronT = mm3(18);
+    boxes.push({
+      id: "desk-apron",
+      role: "side",
+      pos: [0, H - topT - apronH / 2, apronT / 2],
+      size: [apronW, apronH, apronT],
+      color: "#2f88ff",
+    });
+  }
+
+  // Legs
+  const legXL = -(W / 2 - inset - legT / 2);
+  const legXR = +(W / 2 - inset - legT / 2);
+  const legY = legH / 2;
+  const legD = cfg.legType === "square" ? legT : D;
+
+  boxes.push({
+    id: "desk-leg-l",
+    role: "side",
+    pos: [legXL, legY, D / 2],
+    size: [legT, legH, legD],
+    color: "#2f88ff",
+  });
+  boxes.push({
+    id: "desk-leg-r",
+    role: "side",
+    pos: [legXR, legY, D / 2],
+    size: [legT, legH, legD],
+    color: "#2f88ff",
+  });
+
+  // Modesty panel (back privacy panel, lower half)
+  if (cfg.modesty) {
+    const modH = legH * 0.5;
+    const modW = W - 2 * (inset + legT);
+    const modT = mm3(18);
+    boxes.push({
+      id: "desk-modesty",
+      role: "back",
+      pos: [0, legH - modH / 2, modT / 2],
+      size: [modW, modH, modT],
+      color: "#8a93a6",
+    });
+  }
+
+  return boxes;
+}
 
 // ─── Diagram ────────────────────────────────────────────────────────────────
 
@@ -144,6 +222,7 @@ export function DeskPane() {
   const [mobileView, setMobileView] = useState<"2d" | "3d">("2d");
   const set = <K extends keyof DeskConfig>(k: K, v: DeskConfig[K]) =>
     setCfg((c) => ({ ...c, [k]: v }));
+  const boxes3d = useMemo(() => deskToBoxes(cfg), [cfg]);
 
   return (
     <div className="h-full">
@@ -168,7 +247,7 @@ export function DeskPane() {
               className="absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-full bg-[#11151d]/90 px-3 py-1.5 text-xs font-medium text-[#d7dde9] shadow backdrop-blur">
               <ChevronLeft className="size-3.5" /> Editar
             </button>
-            <Viewer3D />
+            <Viewer3D overrideBoxes={boxes3d} />
           </div>
         )}
       </div>

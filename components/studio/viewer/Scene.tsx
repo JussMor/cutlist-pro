@@ -102,11 +102,13 @@ export default function Scene({
   mode,
   colorMode,
   onToggleBackPanel,
+  overrideBoxes,
 }: {
   doc: StudioDocument;
   mode: RenderMode;
   colorMode: ColorMode;
   onToggleBackPanel?: (key: string) => void;
+  overrideBoxes?: Box3D[];
 }) {
   const hiddenSet = useMemo(
     () => new Set(doc.globals.hiddenBackPanels ?? []),
@@ -114,12 +116,13 @@ export default function Scene({
   );
 
   const boxes = useMemo(() => {
+    if (overrideBoxes) return overrideBoxes.map(mirrorForView);
     // Expanded shows the cabinet disassembled with the doors flat (closed), so
     // it builds closed geometry and then explodes it; only "open" swings doors.
     const base = buildAssembly(doc, mode === "open" ? "open" : "closed");
     const laid = mode === "expanded" ? expandAssembly(base) : base;
     return laid.map(mirrorForView);
-  }, [doc, mode]);
+  }, [doc, mode, overrideBoxes]);
 
   const bounds = useMemo(() => assemblyBounds(boxes), [boxes]);
   const [cx, cy, cz] = bounds.center;

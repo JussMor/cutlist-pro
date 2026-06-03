@@ -7,6 +7,7 @@ import { useCallback, useMemo } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MAX_MODULE_HEIGHT_CM } from "@/lib/studio/document";
 import type { StudioColumn } from "@/lib/studio/document";
+import type { Box3D } from "@/lib/studio/geometry";
 import { cn } from "@/lib/utils";
 import { useStudioStore } from "@/store/studioStore";
 
@@ -31,7 +32,7 @@ const Scene = dynamic(() => import("./Scene"), {
   ),
 });
 
-export function Viewer3D() {
+export function Viewer3D({ overrideBoxes }: { overrideBoxes?: Box3D[] } = {}) {
   const doc = useStudioStore((s) => s.doc);
   const mode = useStudioStore((s) => s.renderMode);
   const colorMode = useStudioStore((s) => s.colorMode);
@@ -110,7 +111,8 @@ export function Viewer3D() {
         doc={doc}
         mode={mode}
         colorMode={colorMode}
-        onToggleBackPanel={mode === "expanded" ? toggleBackPanel : undefined}
+        onToggleBackPanel={mode === "expanded" && !overrideBoxes ? toggleBackPanel : undefined}
+        overrideBoxes={overrideBoxes}
       />
 
       {mode === "expanded" && (
