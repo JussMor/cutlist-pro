@@ -1,182 +1,317 @@
 "use client";
 
+import { Box, ChevronLeft } from "lucide-react";
 import { useState } from "react";
 
 import { cn } from "@/lib/utils";
 
-// ─── Config ─────────────────────────────────────────────────────────────────
+import { Viewer3D } from "../viewer/Viewer3D";
+
+// ─── Config ──────────────────────────────────────────────────────────────────
 
 type DoorStyle = "slab" | "shaker" | "shaker-glass";
 
 interface DoorConfig {
-  width: number;         // cm
-  height: number;        // cm
+  // Leaf (hoja)
+  width: number;         // cm — leaf width
+  height: number;        // cm — leaf height
   thickness: number;     // mm
   style: DoorStyle;
-  stileWidth: number;    // mm (left/right frame)
+  stileWidth: number;    // mm
   topRail: number;       // mm
   bottomRail: number;    // mm
-  midRails: number;      // 0..3 extra horizontal rails
+  midRails: number;
+  // Batientes (clearances leaf → opening)
+  sidesGap: number;      // mm each side
+  topGap: number;        // mm
+  bottomGap: number;     // mm
+  // Tapa marcos
+  tapaMarco: boolean;
+  tapaMarcoSides: 1 | 2;
+  tapaMarcoWidth: number;    // cm
+  tapaMarcoThickness: number; // mm
 }
 
 const DEFAULTS: DoorConfig = {
-  width: 45,
-  height: 200,
-  thickness: 19,
-  style: "shaker",
-  stileWidth: 55,
-  topRail: 55,
-  bottomRail: 75,
-  midRails: 0,
+  width: 82.5, height: 203, thickness: 40,
+  style: "shaker", stileWidth: 95, topRail: 95, bottomRail: 120, midRails: 0,
+  sidesGap: 2, topGap: 2, bottomGap: 5,
+  tapaMarco: false, tapaMarcoSides: 2, tapaMarcoWidth: 7, tapaMarcoThickness: 12,
 };
 
 const STYLE_LABELS: Record<DoorStyle, string> = {
-  slab: "Tablero",
-  shaker: "Shaker",
-  "shaker-glass": "Cristal",
+  slab: "Tablero", shaker: "Shaker", "shaker-glass": "Cristal",
 };
 
-// ─── Diagram ────────────────────────────────────────────────────────────────
+// ─── Derived geometry helpers ─────────────────────────────────────────────────
+
+function opening(cfg: DoorConfig) {
+  return {
+    w: cfg.width  + 2 * (cfg.sidesGap  / 10),  // cm
+    h: cfg.height + (cfg.topGap + cfg.bottomGap) / 10,  // cm
+  };
+}
+
+function tapaMarcoQty(cfg: DoorConfig) {
+  if (!cfg.tapaMarco) return { legs: 0, heads: 0, pieces: [] as { label: string; w: number; h: number }[] };
+  const op   = opening(cfg);
+  const tmW  = cfg.tapaMarcoWidth;
+  const legH = +(op.h.toFixed(1));
+  const headW = +(( op.w + 2 * tmW ).toFixed(1));
+  const legQty  = 2 * cfg.tapaMarcoSides;
+  const headQty = 1 * cfg.tapaMarcoSides;
+  const pieces = [
+    { label: `Montante (×${legQty})`,  w: tmW,   h: legH   },
+    { label: `Cabecero (×${headQty})`, w: headW, h: tmW    },
+  ];
+  return { legs: legQty, heads: headQty, pieces };
+}
+
+// ─── Diagram ─────────────────────────────────────────────────────────────────
 
 function DoorDiagram({ cfg }: { cfg: DoorConfig }) {
-  const VW = 220, VH = 340;
-  const pad = 28;
-  const maxW = VW - pad * 2;
-  const maxH = VH - pad * 2 - 20;
-  const scale = Math.min(maxW / cfg.width, maxH / cfg.height);
+  const VW = 240, VH = 360;
+  const pad = 24;
 
-  const sw = cfg.width * scale;
-  const sh = cfg.height * scale;
-  const ox = (VW - sw) / 2;
-  const oy = pad;
+  const op     = opening(cfg);
+  const tmWcm  = cfg.tapaMarco ? cfg.tapaMarcoWidth : 0;
+  const totalW = op.w + 2 * tmWcm;
+  const totalH = op.h + tmWcm;  // head at top
+  const scale  = Math.min((VW - pad * 2) / totalW, (VH - pad * 2 - 24) / totalH);
 
-  const stW  = (cfg.stileWidth / 10) * scale;
-  const tR   = (cfg.topRail / 10) * scale;
-  const bR   = (cfg.bottomRail / 10) * scale;
+  const opW   = op.w  * scale;
+  const opH   = op.h  * scale;
+  const tmPx  = tmWcm * scale;
+  const sGap  = (cfg.sidesGap  / 10) * scale;
+  const tGap  = (cfg.topGap    / 10) * scale;
 
-  const innerX = ox + stW;
-  const innerW = sw - stW * 2;
+  const leafW = cfg.width  * scale;
+  const leafH = cfg.height * scale;
 
-  // mid rail positions (evenly in the inner area)
-  const midRailH = tR * 0.8;
-  const innerH   = sh - tR - bR;
-  const midRailYs = Array.from({ length: cfg.midRails }, (_, i) =>
-    oy + tR + (innerH / (cfg.midRails + 1)) * (i + 1) - midRailH / 2,
+  // Origins — center the total (opening + tapa marcos)
+  const totalWpx  = opW + 2 * tmPx;
+  const opX       = (VW - totalWpx) / 2 + tmPx;
+  const opY       = pad + tmPx;
+
+  const leafX = opX + sGap;
+  const leafY = opY + tGap;
+
+  // Shaker frame dimensions
+  const stW   = (cfg.stileWidth / 10) * scale;
+  const tR    = (cfg.topRail    / 10) * scale;
+  const bR    = (cfg.bottomRail / 10) * scale;
+  const inX   = leafX + stW;
+  const inW   = leafW - stW * 2;
+  const inH   = leafH - tR - bR;
+  const midH  = tR * 0.8;
+  const midYs = Array.from({ length: cfg.midRails }, (_, i) =>
+    leafY + tR + (inH / (cfg.midRails + 1)) * (i + 1) - midH / 2,
   );
-
-  const isGlass = cfg.style === "shaker-glass";
 
   return (
     <svg viewBox={`0 0 ${VW} ${VH}`} className="h-full max-h-80 w-auto">
-      {/* Door outline */}
-      <rect x={ox} y={oy} width={sw} height={sh}
+      {/* ── Tapa marcos ── */}
+      {cfg.tapaMarco && (
+        <>
+          {/* Head */}
+          <rect x={opX - tmPx} y={pad} width={opW + 2 * tmPx} height={tmPx}
+            fill="#1e3040" stroke="#4a6080" strokeWidth="1.2" />
+          {/* Left leg */}
+          <rect x={opX - tmPx} y={opY} width={tmPx} height={opH}
+            fill="#1e3040" stroke="#4a6080" strokeWidth="1.2" />
+          {/* Right leg */}
+          <rect x={opX + opW} y={opY} width={tmPx} height={opH}
+            fill="#1e3040" stroke="#4a6080" strokeWidth="1.2" />
+        </>
+      )}
+
+      {/* ── Opening outline (dashed) ── */}
+      <rect x={opX} y={opY} width={opW} height={opH}
+        fill="none" stroke="#4a5568" strokeWidth="1" strokeDasharray="5 3" />
+
+      {/* ── Door leaf ── */}
+      <rect x={leafX} y={leafY} width={leafW} height={leafH}
         fill="#1a2133" stroke="#3a4869" strokeWidth="1.5" rx="1" />
 
-      {/* Frame detail for shaker/glass */}
+      {/* Shaker / glass frame */}
       {cfg.style !== "slab" && (
         <>
-          {/* Left stile highlight */}
-          <rect x={ox} y={oy} width={stW} height={sh}
-            fill="#1e2840" stroke="none" />
-          {/* Right stile */}
-          <rect x={ox + sw - stW} y={oy} width={stW} height={sh}
-            fill="#1e2840" stroke="none" />
-          {/* Top rail */}
-          <rect x={innerX} y={oy} width={innerW} height={tR}
-            fill="#1e2840" stroke="none" />
-          {/* Bottom rail */}
-          <rect x={innerX} y={oy + sh - bR} width={innerW} height={bR}
-            fill="#1e2840" stroke="none" />
-
-          {/* Frame inner border */}
-          <rect x={innerX} y={oy + tR} width={innerW} height={sh - tR - bR}
-            fill={isGlass ? "#111927" : "#161d2e"} stroke="#3a4869" strokeWidth="1" />
-
-          {/* Mid rails */}
-          {midRailYs.map((y, i) => (
-            <rect key={i} x={innerX} y={y} width={innerW} height={midRailH}
+          <rect x={leafX}                y={leafY} width={stW}  height={leafH} fill="#1e2840" />
+          <rect x={leafX + leafW - stW}  y={leafY} width={stW}  height={leafH} fill="#1e2840" />
+          <rect x={inX}                  y={leafY} width={inW}  height={tR}    fill="#1e2840" />
+          <rect x={inX} y={leafY + leafH - bR}     width={inW}  height={bR}    fill="#1e2840" />
+          <rect x={inX} y={leafY + tR}  width={inW} height={inH}
+            fill={cfg.style === "shaker-glass" ? "#111927" : "#161d2e"}
+            stroke="#3a4869" strokeWidth="1" />
+          {midYs.map((y, i) => (
+            <rect key={i} x={inX} y={y} width={inW} height={midH}
               fill="#1e2840" stroke="#3a4869" strokeWidth="0.8" />
           ))}
-
-          {/* Glass hatch */}
-          {isGlass && (
-            <g clipPath="url(#glassCp)">
-              {Array.from({ length: 12 }, (_, i) => (
+          {cfg.style === "shaker-glass" && (
+            <g clipPath="url(#glCp)">
+              {Array.from({ length: 10 }, (_, i) => (
                 <line key={i}
-                  x1={innerX + i * (innerW / 6)} y1={oy + tR}
-                  x2={innerX + i * (innerW / 6) - innerW / 2} y2={oy + sh - bR}
-                  stroke="#3a4869" strokeWidth="0.8" opacity="0.5" />
+                  x1={inX + i * (inW / 5)} y1={leafY + tR}
+                  x2={inX + i * (inW / 5) - inW / 2} y2={leafY + leafH - bR}
+                  stroke="#3a4869" strokeWidth="0.8" opacity="0.4" />
               ))}
             </g>
           )}
           <defs>
-            <clipPath id="glassCp">
-              <rect x={innerX} y={oy + tR} width={innerW} height={sh - tR - bR} />
+            <clipPath id="glCp">
+              <rect x={inX} y={leafY + tR} width={inW} height={inH} />
             </clipPath>
           </defs>
         </>
       )}
 
-      {/* Width dimension */}
-      <line x1={ox} y1={oy + sh + 12} x2={ox + sw} y2={oy + sh + 12}
-        stroke="#4a5568" strokeWidth="1" />
-      <text x={ox + sw / 2} y={oy + sh + 22} textAnchor="middle" fill="#7d879a" fontSize="10">
-        {cfg.width} cm
-      </text>
+      {/* ── Batiente gap labels (if > 0) ── */}
+      {cfg.sidesGap > 0 && (
+        <text x={opX + 2} y={leafY + leafH / 2} fill="#f4b450" fontSize="8" dominantBaseline="middle">
+          {cfg.sidesGap}
+        </text>
+      )}
+      {cfg.topGap > 0 && (
+        <text x={leafX + leafW / 2} y={opY + 2} fill="#f4b450" fontSize="8" dominantBaseline="hanging" textAnchor="middle">
+          {cfg.topGap}
+        </text>
+      )}
 
-      {/* Height dimension */}
-      <line x1={ox - 10} y1={oy} x2={ox - 10} y2={oy + sh}
-        stroke="#4a5568" strokeWidth="1" />
-      <text x={ox - 14} y={oy + sh / 2} textAnchor="middle" fill="#7d879a" fontSize="10"
-        transform={`rotate(-90,${ox - 14},${oy + sh / 2})`}>
-        {cfg.height} cm
+      {/* ── Dimension labels ── */}
+      <text x={VW / 2} y={opY + opH + tmPx + 16} textAnchor="middle" fill="#4a5568" fontSize="10">
+        hoja {cfg.width} × {cfg.height} cm · cerco {+(op.w.toFixed(1))} × {+(op.h.toFixed(1))} cm
       </text>
     </svg>
   );
 }
 
-// ─── Field helpers ───────────────────────────────────────────────────────────
+// ─── Field helpers ────────────────────────────────────────────────────────────
 
-function Field({
-  label, value, unit, step = 1, min = 0, onChange,
-}: {
-  label: string; value: number; unit: string;
-  step?: number; min?: number; onChange: (v: number) => void;
+function Field({ label, value, step = 1, onChange }: {
+  label: string; value: number; step?: number; onChange: (v: number) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-xs text-[#7d879a]">{label}</span>
-      <div className="flex items-center gap-1">
-        <input
-          type="number" step={step} min={min} value={value}
-          onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) onChange(v); }}
-          className="w-16 rounded border border-[#1f2735] bg-[#0d1119] px-2 py-1 text-right text-sm text-[#f4b450] outline-none focus:border-[#3a4559]"
-        />
-        <span className="w-6 shrink-0 text-xs text-[#4a5568]">{unit}</span>
-      </div>
+    <div className="rounded-xl border border-[#1f2735] bg-[#0d1119] p-3">
+      <div className="mb-1 text-[11px] uppercase tracking-wide text-[#7d879a]">{label}</div>
+      <input type="number" step={step} value={value}
+        onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) onChange(v); }}
+        className="w-full bg-transparent text-2xl font-semibold text-[#f4b450] outline-none" />
     </div>
   );
 }
 
-function Stepper({ label, value, min = 0, max = 3, onChange }: {
-  label: string; value: number; min?: number; max?: number; onChange: (v: number) => void;
+// ─── Controls ────────────────────────────────────────────────────────────────
+
+function DoorControls({ cfg, set }: {
+  cfg: DoorConfig;
+  set: <K extends keyof DoorConfig>(k: K, v: DoorConfig[K]) => void;
 }) {
+  const tm = tapaMarcoQty(cfg);
+
   return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-xs text-[#7d879a]">{label}</span>
-      <div className="flex items-center gap-1.5">
-        <button type="button" disabled={value <= min}
-          onClick={() => onChange(value - 1)}
-          className="flex h-6 w-6 items-center justify-center rounded border border-[#1f2735] text-[#7d879a] disabled:opacity-30 hover:text-[#d7dde9]">
-          −
-        </button>
-        <span className="w-5 text-center text-sm text-[#f4b450]">{value}</span>
-        <button type="button" disabled={value >= max}
-          onClick={() => onChange(value + 1)}
-          className="flex h-6 w-6 items-center justify-center rounded border border-[#1f2735] text-[#7d879a] disabled:opacity-30 hover:text-[#d7dde9]">
-          +
-        </button>
+    <div className="space-y-4">
+
+      {/* Hoja */}
+      <div className="space-y-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#4a5568]">Hoja</p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Ancho (cm)"  value={cfg.width}     onChange={(v) => set("width", v)} />
+          <Field label="Alto (cm)"   value={cfg.height}    onChange={(v) => set("height", v)} />
+          <Field label="Grosor (mm)" value={cfg.thickness} onChange={(v) => set("thickness", v)} />
+        </div>
+        <div className="rounded-xl border border-[#1f2735] bg-[#0d1119] p-3">
+          <div className="mb-2 text-[11px] uppercase tracking-wide text-[#7d879a]">Estilo</div>
+          <div className="flex gap-1.5">
+            {(["slab", "shaker", "shaker-glass"] as const).map((s) => (
+              <button key={s} type="button" onClick={() => set("style", s)}
+                className={cn(
+                  "flex-1 rounded-lg border py-1.5 text-xs transition",
+                  cfg.style === s
+                    ? "border-[#f4b450] bg-[#f4b450]/10 text-[#f4b450]"
+                    : "border-[#1f2735] text-[#7d879a] hover:border-[#4a5568] hover:text-[#d7dde9]",
+                )}>
+                {STYLE_LABELS[s]}
+              </button>
+            ))}
+          </div>
+        </div>
+        {cfg.style !== "slab" && (
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Montante (mm)"  value={cfg.stileWidth}  onChange={(v) => set("stileWidth", v)} />
+            <Field label="Trav. sup (mm)" value={cfg.topRail}     onChange={(v) => set("topRail", v)} />
+            <Field label="Trav. inf (mm)" value={cfg.bottomRail}  onChange={(v) => set("bottomRail", v)} />
+            <div className="rounded-xl border border-[#1f2735] bg-[#0d1119] p-3">
+              <div className="mb-1 text-[11px] uppercase tracking-wide text-[#7d879a]">Trav. medios</div>
+              <div className="flex items-center gap-2">
+                <button type="button" disabled={cfg.midRails <= 0} onClick={() => set("midRails", cfg.midRails - 1)}
+                  className="flex size-7 items-center justify-center rounded border border-[#1f2735] text-[#7d879a] disabled:opacity-30 hover:text-[#d7dde9]">−</button>
+                <span className="flex-1 text-center text-2xl font-semibold text-[#f4b450]">{cfg.midRails}</span>
+                <button type="button" disabled={cfg.midRails >= 3} onClick={() => set("midRails", cfg.midRails + 1)}
+                  className="flex size-7 items-center justify-center rounded border border-[#1f2735] text-[#7d879a] disabled:opacity-30 hover:text-[#d7dde9]">+</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Batientes */}
+      <div className="space-y-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#4a5568]">Batientes</p>
+        <div className="grid grid-cols-3 gap-3">
+          <Field label="Lados (mm)"  value={cfg.sidesGap}   onChange={(v) => set("sidesGap", v)} />
+          <Field label="Testa (mm)"  value={cfg.topGap}     onChange={(v) => set("topGap", v)} />
+          <Field label="Suelo (mm)"  value={cfg.bottomGap}  onChange={(v) => set("bottomGap", v)} />
+        </div>
+        <div className="rounded-xl border border-[#1f2735] bg-[#0d1119] px-3 py-2 text-xs text-[#7d879a]">
+          Cerco: <span className="text-[#f4b450]">{+(opening(cfg).w.toFixed(1))} × {+(opening(cfg).h.toFixed(1))} cm</span>
+        </div>
+      </div>
+
+      {/* Tapa marcos */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#4a5568]">Tapa marcos</p>
+          <button type="button" onClick={() => set("tapaMarco", !cfg.tapaMarco)}
+            className={cn("h-4 w-7 rounded-full transition", cfg.tapaMarco ? "bg-[#f4b450]" : "bg-[#1f2735]")}>
+            <span className={cn("block h-3 w-3 translate-x-0.5 rounded-full bg-[#0d1119] transition", cfg.tapaMarco && "translate-x-3.5")} />
+          </button>
+        </div>
+        {cfg.tapaMarco && (
+          <>
+            <div className="rounded-xl border border-[#1f2735] bg-[#0d1119] p-3">
+              <div className="mb-2 text-[11px] uppercase tracking-wide text-[#7d879a]">Caras de muro</div>
+              <div className="flex gap-1.5">
+                {([1, 2] as const).map((n) => (
+                  <button key={n} type="button" onClick={() => set("tapaMarcoSides", n)}
+                    className={cn(
+                      "flex-1 rounded-lg border py-1.5 text-xs transition",
+                      cfg.tapaMarcoSides === n
+                        ? "border-[#f4b450] bg-[#f4b450]/10 text-[#f4b450]"
+                        : "border-[#1f2735] text-[#7d879a] hover:border-[#4a5568] hover:text-[#d7dde9]",
+                    )}>
+                    {n} cara{n > 1 ? "s" : ""}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Ancho (cm)"  value={cfg.tapaMarcoWidth}     onChange={(v) => set("tapaMarcoWidth", v)} />
+              <Field label="Grosor (mm)" value={cfg.tapaMarcoThickness} onChange={(v) => set("tapaMarcoThickness", v)} />
+            </div>
+            {/* Piece summary */}
+            <div className="rounded-xl border border-[#1f2735] bg-[#0d1119] p-3 space-y-1.5">
+              <div className="text-[11px] uppercase tracking-wide text-[#7d879a] mb-2">Piezas de tapa marco</div>
+              {tm.pieces.map((p) => (
+                <div key={p.label} className="flex items-center justify-between text-xs">
+                  <span className="text-[#9aa4b6]">{p.label}</span>
+                  <span className="text-[#f4b450]">{p.w.toFixed(1)} × {p.h.toFixed(1)} cm</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
     </div>
   );
 }
@@ -185,51 +320,53 @@ function Stepper({ label, value, min = 0, max = 3, onChange }: {
 
 export function DoorPane() {
   const [cfg, setCfg] = useState<DoorConfig>(DEFAULTS);
+  const [mobileView, setMobileView] = useState<"2d" | "3d">("2d");
   const set = <K extends keyof DoorConfig>(k: K, v: DoorConfig[K]) =>
     setCfg((c) => ({ ...c, [k]: v }));
 
   return (
-    <div className="flex h-full flex-col lg:flex-row">
-      {/* Diagram */}
-      <div className="flex min-h-[280px] flex-1 items-center justify-center bg-[#0b0e14] p-6">
-        <DoorDiagram cfg={cfg} />
+    <div className="h-full">
+      {/* ── Mobile ── */}
+      <div className="flex h-full flex-col lg:hidden">
+        {mobileView === "2d" ? (
+          <>
+            <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-[#0b0e14] p-4">
+              <DoorDiagram cfg={cfg} />
+            </div>
+            <div className="overflow-y-auto border-t border-[#1c2330] p-4">
+              <div className="space-y-4">
+                <DoorControls cfg={cfg} set={set} />
+                <button type="button" onClick={() => setMobileView("3d")}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#262d3d] bg-[#0f1218] py-2.5 text-sm font-medium text-[#9aa4b6] transition active:bg-[#11151d]">
+                  <Box className="size-4" /> Ver en 3D
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="relative h-full bg-[#0b0e14]">
+            <button type="button" onClick={() => setMobileView("2d")}
+              className="absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-full bg-[#11151d]/90 px-3 py-1.5 text-xs font-medium text-[#d7dde9] shadow backdrop-blur">
+              <ChevronLeft className="size-3.5" /> Editar
+            </button>
+            <Viewer3D />
+          </div>
+        )}
       </div>
 
-      {/* Controls */}
-      <div className="shrink-0 space-y-5 overflow-y-auto border-t border-[#1c2330] p-4 lg:w-64 lg:border-l lg:border-t-0">
-        <section className="space-y-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#4a5568]">Dimensiones</p>
-          <Field label="Ancho" value={cfg.width} unit="cm" onChange={(v) => set("width", v)} />
-          <Field label="Alto" value={cfg.height} unit="cm" onChange={(v) => set("height", v)} />
-          <Field label="Grosor" value={cfg.thickness} unit="mm" onChange={(v) => set("thickness", v)} />
-        </section>
-
-        <section className="space-y-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#4a5568]">Estilo</p>
-          <div className="flex gap-1">
-            {(["slab", "shaker", "shaker-glass"] as const).map((s) => (
-              <button key={s} type="button" onClick={() => set("style", s)}
-                className={cn(
-                  "flex-1 rounded py-1.5 text-xs transition",
-                  cfg.style === s
-                    ? "bg-[#e8eaee] font-medium text-[#0b0e14]"
-                    : "border border-[#1f2735] text-[#7d879a] hover:text-[#d7dde9]",
-                )}>
-                {STYLE_LABELS[s]}
-              </button>
-            ))}
+      {/* ── Desktop ── */}
+      <div className="hidden h-full lg:grid lg:grid-cols-2">
+        <div className="relative flex min-h-0 flex-col border-r border-[#1c2330]">
+          <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-[#0b0e14] p-6">
+            <DoorDiagram cfg={cfg} />
           </div>
-        </section>
-
-        {cfg.style !== "slab" && (
-          <section className="space-y-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#4a5568]">Marco</p>
-            <Field label="Montante" value={cfg.stileWidth} unit="mm" onChange={(v) => set("stileWidth", v)} />
-            <Field label="Travesaño sup." value={cfg.topRail} unit="mm" onChange={(v) => set("topRail", v)} />
-            <Field label="Travesaño inf." value={cfg.bottomRail} unit="mm" onChange={(v) => set("bottomRail", v)} />
-            <Stepper label="Travesaños medios" value={cfg.midRails} max={3} onChange={(v) => set("midRails", v)} />
-          </section>
-        )}
+          <div className="overflow-y-auto border-t border-[#1c2330] p-4" style={{ maxHeight: "55%" }}>
+            <DoorControls cfg={cfg} set={set} />
+          </div>
+        </div>
+        <div className="relative min-h-[340px] bg-[#0b0e14]">
+          <Viewer3D />
+        </div>
       </div>
     </div>
   );

@@ -38,7 +38,7 @@ import {
 export type StudioTab = "design" | "cutlist";
 export type RenderMode = "closed" | "open" | "expanded";
 export type ColorMode = "colored" | "uncolored";
-export type FurnitureMode = "cabinet" | "desk" | "door" | "vanity" | "column";
+export type FurnitureMode = "cabinet" | "desk" | "door" | "column";
 
 interface StudioState {
   doc: StudioDocument;
