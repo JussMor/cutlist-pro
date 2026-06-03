@@ -3,32 +3,13 @@
 import { Box, ChevronLeft } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import type { Box3D } from "@/lib/studio/geometry";
+import { type ColumnConfig, type ExposedSides, columnToBoxes } from "@/lib/studio/furnitureGeometry";
 import { cn } from "@/lib/utils";
+import { useStudioStore } from "@/store/studioStore";
 
 import { Viewer3D } from "../viewer/Viewer3D";
 
 // ─── Config ─────────────────────────────────────────────────────────────────
-
-type ExposedSides = "1" | "2-corner" | "3-wall" | "4-full";
-
-interface ColumnConfig {
-  colWidth: number;
-  colDepth: number;
-  claddingThickness: number;  // mm
-  height: number;
-  exposedSides: ExposedSides;
-  plinth: boolean;
-  plinthHeight: number;  // cm
-  cap: boolean;
-  capHeight: number;     // cm
-}
-
-const DEFAULTS: ColumnConfig = {
-  colWidth: 30, colDepth: 30, claddingThickness: 18,
-  height: 250, exposedSides: "4-full",
-  plinth: false, plinthHeight: 10, cap: false, capHeight: 8,
-};
 
 const SIDES_OPTIONS: { id: ExposedSides; label: string; panels: number }[] = [
   { id: "1",        label: "1 lado",     panels: 1 },
@@ -37,105 +18,6 @@ const SIDES_OPTIONS: { id: ExposedSides; label: string; panels: number }[] = [
   { id: "4-full",   label: "4 lados",    panels: 4 },
 ];
 
-// ─── 3D Geometry ────────────────────────────────────────────────────────────
-
-const mm3 = (v: number) => v / 1000;
-const cm3 = (v: number) => v / 100;
-
-function columnToBoxes(cfg: ColumnConfig): Box3D[] {
-  const CW = cm3(cfg.colWidth);
-  const CD = cm3(cfg.colDepth);
-  const ct = mm3(cfg.claddingThickness);
-  const H = cm3(cfg.height);
-  const plinthH = cfg.plinth ? cm3(cfg.plinthHeight) : 0;
-  const capH = cfg.cap ? cm3(cfg.capHeight) : 0;
-  const panelH = H - plinthH - capH;
-  const panelY = plinthH + panelH / 2;
-
-  const show4 = cfg.exposedSides === "4-full";
-  const show3 = cfg.exposedSides === "3-wall";
-  const showL = cfg.exposedSides === "2-corner";
-
-  const boxes: Box3D[] = [];
-
-  // Plinth
-  if (cfg.plinth) {
-    boxes.push({
-      id: "col-plinth",
-      role: "deck",
-      pos: [0, plinthH / 2, (CD + 2 * ct) / 2],
-      size: [CW + 2 * ct, plinthH, CD + 2 * ct],
-      color: "#2fd06a",
-    });
-  }
-
-  // Cap
-  if (cfg.cap) {
-    boxes.push({
-      id: "col-cap",
-      role: "deck",
-      pos: [0, H - capH / 2, (CD + 2 * ct) / 2],
-      size: [CW + 2 * ct, capH, CD + 2 * ct],
-      color: "#2fd06a",
-    });
-  }
-
-  // Column core (structural post)
-  boxes.push({
-    id: "col-core",
-    role: "back",
-    pos: [0, panelY, CD / 2],
-    size: [CW, panelH, CD],
-    color: "#8a93a6",
-  });
-
-  // Front cladding — always shown
-  boxes.push({
-    id: "col-front",
-    role: "side",
-    pos: [0, panelY, CD + ct / 2],
-    size: [CW, panelH, ct],
-    color: "#2f88ff",
-  });
-
-  // Back cladding
-  if (show4 || show3) {
-    boxes.push({
-      id: "col-back",
-      role: "side",
-      pos: [0, panelY, -ct / 2],
-      size: [CW, panelH, ct],
-      color: "#2f88ff",
-    });
-  }
-
-  // Left cladding (wraps corners when 4-full)
-  if (show4 || show3 || showL) {
-    const leftX = show4 ? -(CW / 2 + ct / 2) : -CW / 2;
-    const leftZ = CD / 2;
-    const leftD = show4 ? CD + 2 * ct : CD;
-    boxes.push({
-      id: "col-left",
-      role: "side",
-      pos: [leftX, panelY, leftZ],
-      size: [ct, panelH, leftD],
-      color: "#2f88ff",
-    });
-  }
-
-  // Right cladding (4-full only)
-  if (show4) {
-    boxes.push({
-      id: "col-right",
-      role: "side",
-      pos: [CW / 2 + ct / 2, panelY, CD / 2],
-      size: [ct, panelH, CD + 2 * ct],
-      color: "#2f88ff",
-    });
-  }
-
-  return boxes;
-}
 
 // ─── Diagram (plan view) ─────────────────────────────────────────────────────
 
@@ -268,10 +150,11 @@ function ColumnControls({ cfg, set }: { cfg: ColumnConfig; set: <K extends keyof
 // ─── Pane ────────────────────────────────────────────────────────────────────
 
 export function ColumnPane() {
-  const [cfg, setCfg] = useState<ColumnConfig>(DEFAULTS);
+  const cfg = useStudioStore((s) => s.columnConfig);
+  const setColumnConfig = useStudioStore((s) => s.setColumnConfig);
   const [mobileView, setMobileView] = useState<"2d" | "3d">("2d");
   const set = <K extends keyof ColumnConfig>(k: K, v: ColumnConfig[K]) =>
-    setCfg((c) => ({ ...c, [k]: v }));
+    setColumnConfig({ ...cfg, [k]: v });
   const boxes3d = useMemo(() => columnToBoxes(cfg), [cfg]);
 
   return (

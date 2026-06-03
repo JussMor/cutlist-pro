@@ -3,42 +3,13 @@
 import { Box, ChevronLeft } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import type { Box3D } from "@/lib/studio/geometry";
+import { type DoorConfig, type DoorStyle, doorToBoxes } from "@/lib/studio/furnitureGeometry";
 import { cn } from "@/lib/utils";
+import { useStudioStore } from "@/store/studioStore";
 
 import { Viewer3D } from "../viewer/Viewer3D";
 
 // ─── Config ──────────────────────────────────────────────────────────────────
-
-type DoorStyle = "slab" | "shaker" | "shaker-glass";
-
-interface DoorConfig {
-  // Leaf (hoja)
-  width: number;         // cm — leaf width
-  height: number;        // cm — leaf height
-  thickness: number;     // mm
-  style: DoorStyle;
-  stileWidth: number;    // mm
-  topRail: number;       // mm
-  bottomRail: number;    // mm
-  midRails: number;
-  // Batientes (clearances leaf → opening)
-  sidesGap: number;      // mm each side
-  topGap: number;        // mm
-  bottomGap: number;     // mm
-  // Tapa marcos
-  tapaMarco: boolean;
-  tapaMarcoSides: 1 | 2;
-  tapaMarcoWidth: number;    // cm
-  tapaMarcoThickness: number; // mm
-}
-
-const DEFAULTS: DoorConfig = {
-  width: 82.5, height: 203, thickness: 40,
-  style: "shaker", stileWidth: 95, topRail: 95, bottomRail: 120, midRails: 0,
-  sidesGap: 2, topGap: 2, bottomGap: 5,
-  tapaMarco: false, tapaMarcoSides: 2, tapaMarcoWidth: 7, tapaMarcoThickness: 12,
-};
 
 const STYLE_LABELS: Record<DoorStyle, string> = {
   slab: "Tablero", shaker: "Shaker", "shaker-glass": "Cristal",
@@ -66,90 +37,6 @@ function tapaMarcoQty(cfg: DoorConfig) {
     { label: `Cabecero (×${headQty})`, w: headW, h: tmW    },
   ];
   return { legs: legQty, heads: headQty, pieces };
-}
-
-// ─── 3D Geometry ─────────────────────────────────────────────────────────────
-
-const mm3 = (v: number) => v / 1000;
-const cm3 = (v: number) => v / 100;
-
-function doorToBoxes(cfg: DoorConfig): Box3D[] {
-  const W = cm3(cfg.width);
-  const H = cm3(cfg.height);
-  const T = mm3(cfg.thickness);
-  const sidesGap = mm3(cfg.sidesGap);
-  const topGap = mm3(cfg.topGap);
-  const bottomGap = mm3(cfg.bottomGap);
-
-  const boxes: Box3D[] = [];
-
-  // Door leaf — bottom at bottomGap above floor
-  boxes.push({
-    id: "door-leaf",
-    role: "door",
-    pos: [0, bottomGap + H / 2, T / 2],
-    size: [W, H, T],
-    color: "#f4b450",
-  });
-
-  if (cfg.tapaMarco) {
-    const openW = W + 2 * sidesGap;
-    const openH = H + topGap + bottomGap;
-    const tmW = cm3(cfg.tapaMarcoWidth);
-    const tmT = mm3(cfg.tapaMarcoThickness);
-
-    // Left casing
-    boxes.push({
-      id: "tm-left",
-      role: "side",
-      pos: [-(openW / 2 + tmW / 2), openH / 2, tmT / 2],
-      size: [tmW, openH, tmT],
-      color: "#2f88ff",
-    });
-    // Right casing
-    boxes.push({
-      id: "tm-right",
-      role: "side",
-      pos: [+(openW / 2 + tmW / 2), openH / 2, tmT / 2],
-      size: [tmW, openH, tmT],
-      color: "#2f88ff",
-    });
-    // Top header
-    boxes.push({
-      id: "tm-top",
-      role: "deck",
-      pos: [0, openH + tmW / 2, tmT / 2],
-      size: [openW + 2 * tmW, tmW, tmT],
-      color: "#2fd06a",
-    });
-    // Second set of casings on back face for tapaMarcoSides === 2
-    if (cfg.tapaMarcoSides === 2) {
-      const backZ = T + tmT / 2;
-      boxes.push({
-        id: "tm-left-back",
-        role: "side",
-        pos: [-(openW / 2 + tmW / 2), openH / 2, backZ],
-        size: [tmW, openH, tmT],
-        color: "#2f88ff",
-      });
-      boxes.push({
-        id: "tm-right-back",
-        role: "side",
-        pos: [+(openW / 2 + tmW / 2), openH / 2, backZ],
-        size: [tmW, openH, tmT],
-        color: "#2f88ff",
-      });
-      boxes.push({
-        id: "tm-top-back",
-        role: "deck",
-        pos: [0, openH + tmW / 2, backZ],
-        size: [openW + 2 * tmW, tmW, tmT],
-        color: "#2fd06a",
-      });
-    }
-  }
-
-  return boxes;
 }
 
 // ─── Diagram ─────────────────────────────────────────────────────────────────
@@ -404,10 +291,11 @@ function DoorControls({ cfg, set }: {
 // ─── Pane ────────────────────────────────────────────────────────────────────
 
 export function DoorPane() {
-  const [cfg, setCfg] = useState<DoorConfig>(DEFAULTS);
+  const cfg = useStudioStore((s) => s.doorConfig);
+  const setDoorConfig = useStudioStore((s) => s.setDoorConfig);
   const [mobileView, setMobileView] = useState<"2d" | "3d">("2d");
   const set = <K extends keyof DoorConfig>(k: K, v: DoorConfig[K]) =>
-    setCfg((c) => ({ ...c, [k]: v }));
+    setDoorConfig({ ...cfg, [k]: v });
   const boxes3d = useMemo(() => doorToBoxes(cfg), [cfg]);
 
   return (

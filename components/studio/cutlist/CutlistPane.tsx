@@ -15,8 +15,9 @@ import type {
   StockSheet,
 } from "@/lib/domain/types";
 import { aggregateDespiece, type AggregateEntry } from "@/lib/studio/aggregate";
-import { computeDespiece } from "@/lib/studio/despiece";
+import { computeDespiece, computeDespieceFromBoxes } from "@/lib/studio/despiece";
 import type { StudioPanel } from "@/lib/studio/despiece";
+import { deskToBoxes, doorToBoxes, columnToBoxes } from "@/lib/studio/furnitureGeometry";
 import type { ManualPanel } from "@/lib/studio/document";
 import { usePricingStore } from "@/store/pricingStore";
 import { useStudioStore } from "@/store/studioStore";
@@ -191,6 +192,10 @@ function drawerCollectionIndex(panel: StudioPanel) {
 
 export function CutlistPane() {
   const doc = useStudioStore((s) => s.doc);
+  const furnitureMode = useStudioStore((s) => s.furnitureMode);
+  const deskConfig = useStudioStore((s) => s.deskConfig);
+  const doorConfig = useStudioStore((s) => s.doorConfig);
+  const columnConfig = useStudioStore((s) => s.columnConfig);
   const addManualPanel = useStudioStore((s) => s.addManualPanel);
   const updateManualPanel = useStudioStore((s) => s.updateManualPanel);
   const deleteManualPanel = useStudioStore((s) => s.deleteManualPanel);
@@ -198,7 +203,12 @@ export function CutlistPane() {
   const updateBandingOverride = useStudioStore((s) => s.updateBandingOverride);
   const pricing = usePricingStore((s) => s.pricing);
   const setPricingField = usePricingStore((s) => s.setPricingField);
-  const { panels } = useMemo(() => computeDespiece(doc), [doc]);
+  const { panels } = useMemo(() => {
+    if (furnitureMode === "desk")   return computeDespieceFromBoxes(deskToBoxes(deskConfig));
+    if (furnitureMode === "door")   return computeDespieceFromBoxes(doorToBoxes(doorConfig));
+    if (furnitureMode === "column") return computeDespieceFromBoxes(columnToBoxes(columnConfig));
+    return computeDespiece(doc);
+  }, [doc, furnitureMode, deskConfig, doorConfig, columnConfig]);
   const manualPanels = useMemo(() => doc.manualPanels ?? [], [doc.manualPanels]);
   // Option B: other furniture documents pulled into this same optimization run.
   // Ephemeral — selection lives here, not persisted on the document.

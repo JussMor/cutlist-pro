@@ -8,6 +8,14 @@ import {
   type StudioDocRecord,
 } from "@/lib/api/client";
 import {
+  DESK_DEFAULTS,
+  DOOR_DEFAULTS,
+  COLUMN_DEFAULTS,
+  type DeskConfig,
+  type DoorConfig,
+  type ColumnConfig,
+} from "@/lib/studio/furnitureGeometry";
+import {
   addCell as addCellMut,
   addColumn as addColumnMut,
   addManualPanel as addManualPanelMut,
@@ -40,6 +48,8 @@ export type RenderMode = "closed" | "open" | "expanded";
 export type ColorMode = "colored" | "uncolored";
 export type FurnitureMode = "cabinet" | "desk" | "door" | "column";
 
+export type { DeskConfig, DoorConfig, ColumnConfig };
+
 interface StudioState {
   doc: StudioDocument;
   activeTab: StudioTab;
@@ -55,6 +65,13 @@ interface StudioState {
   setColorMode: (mode: ColorMode) => void;
   setFurnitureMode: (mode: FurnitureMode) => void;
   setTitle: (title: string) => void;
+
+  deskConfig: DeskConfig;
+  doorConfig: DoorConfig;
+  columnConfig: ColumnConfig;
+  setDeskConfig: (cfg: DeskConfig) => void;
+  setDoorConfig: (cfg: DoorConfig) => void;
+  setColumnConfig: (cfg: ColumnConfig) => void;
 
   setSelection: (ids: string[]) => void;
   toggleSelect: (id: string, additive: boolean) => void;
@@ -102,11 +119,17 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   furnitureMode: "cabinet",
   selection: [],
   saving: false,
+  deskConfig: DESK_DEFAULTS,
+  doorConfig: DOOR_DEFAULTS,
+  columnConfig: COLUMN_DEFAULTS,
 
   setActiveTab: (activeTab) => set({ activeTab }),
   setRenderMode: (renderMode) => set({ renderMode }),
   setColorMode: (colorMode) => set({ colorMode }),
   setFurnitureMode: (furnitureMode) => set({ furnitureMode }),
+  setDeskConfig: (deskConfig) => set({ deskConfig }),
+  setDoorConfig: (doorConfig) => set({ doorConfig }),
+  setColumnConfig: (columnConfig) => set({ columnConfig }),
   setTitle: (title) =>
     set((s) => ({ doc: { ...s.doc, title, updatedAt: Date.now() } })),
 

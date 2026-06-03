@@ -160,6 +160,38 @@ function groupOps(ops: StudioOperation[]): StudioOperation[] {
   return Array.from(map.values());
 }
 
+export function computeDespieceFromBoxes(boxes: Box3D[]): DespieceResult {
+  const groups = new Map<string, StudioPanel>();
+  const badgeCount: Record<string, number> = {};
+
+  for (const box of boxes) {
+    const raw = rawFromBox(box);
+    if (!raw) continue;
+    const key = panelKey(raw);
+    const existing = groups.get(key);
+    if (existing) {
+      existing.qty += 1;
+      continue;
+    }
+    const prefix = ROLE_BADGE[raw.role];
+    badgeCount[prefix] = (badgeCount[prefix] ?? 0) + 1;
+    groups.set(key, {
+      key,
+      badge: `${prefix}${badgeCount[prefix]}`,
+      role: raw.role,
+      orientation: raw.orientation,
+      width: raw.width,
+      height: raw.height,
+      thickness: raw.thickness,
+      qty: 1,
+    });
+  }
+
+  const panels = Array.from(groups.values());
+  const operations = groupOps(panels.flatMap(operationsForPanel));
+  return { panels, operations };
+}
+
 export function computeDespiece(doc: StudioDocument): DespieceResult {
   // Respect hidden back panels stored in doc.globals — same source of truth as
   // the 3D viewer's expanded mode. Build the exclusion set here so callers
@@ -197,35 +229,5 @@ export function computeDespiece(doc: StudioDocument): DespieceResult {
 
   const raw = buildAssembly(doc);
   const boxes = excludeIds.size > 0 ? raw.filter((b) => !excludeIds.has(b.id)) : raw;
-
-  // group identical raw panels (deterministic by first-seen order)
-  const groups = new Map<string, StudioPanel>();
-  const badgeCount: Record<string, number> = {};
-
-  for (const box of boxes) {
-    const raw = rawFromBox(box);
-    if (!raw) continue; // skip non-cut roles (hanging bars, etc.)
-    const key = panelKey(raw);
-    const existing = groups.get(key);
-    if (existing) {
-      existing.qty += 1;
-      continue;
-    }
-    const prefix = ROLE_BADGE[raw.role];
-    badgeCount[prefix] = (badgeCount[prefix] ?? 0) + 1;
-    groups.set(key, {
-      key,
-      badge: `${prefix}${badgeCount[prefix]}`,
-      role: raw.role,
-      orientation: raw.orientation,
-      width: raw.width,
-      height: raw.height,
-      thickness: raw.thickness,
-      qty: 1,
-    });
-  }
-
-  const panels = Array.from(groups.values());
-  const operations = groupOps(panels.flatMap(operationsForPanel));
-  return { panels, operations };
+  return computeDespieceFromBoxes(boxes);
 }
