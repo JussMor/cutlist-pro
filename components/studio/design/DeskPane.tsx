@@ -3,109 +3,11 @@
 import { Box, ChevronLeft } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import type { Box3D } from "@/lib/studio/geometry";
+import { type DeskConfig, deskToBoxes } from "@/lib/studio/furnitureGeometry";
 import { cn } from "@/lib/utils";
+import { useStudioStore } from "@/store/studioStore";
 
 import { Viewer3D } from "../viewer/Viewer3D";
-
-// ─── Config ─────────────────────────────────────────────────────────────────
-
-interface DeskConfig {
-  width: number;
-  depth: number;
-  height: number;
-  topThickness: number;  // mm
-  legType: "panel" | "square";
-  legThickness: number;  // mm
-  legInset: number;      // cm
-  apron: boolean;
-  apronHeight: number;   // mm
-  modesty: boolean;
-}
-
-const DEFAULTS: DeskConfig = {
-  width: 140, depth: 70, height: 75,
-  topThickness: 25, legType: "panel",
-  legThickness: 18, legInset: 0,
-  apron: false, apronHeight: 70, modesty: false,
-};
-
-// ─── 3D Geometry ────────────────────────────────────────────────────────────
-
-const mm3 = (v: number) => v / 1000;
-const cm3 = (v: number) => v / 100;
-
-function deskToBoxes(cfg: DeskConfig): Box3D[] {
-  const W = cm3(cfg.width);
-  const D = cm3(cfg.depth);
-  const H = cm3(cfg.height);
-  const topT = mm3(cfg.topThickness);
-  const legT = mm3(cfg.legThickness);
-  const inset = cm3(cfg.legInset);
-  const apronH = cfg.apron ? mm3(cfg.apronHeight) : 0;
-  const legH = H - topT - apronH;
-
-  const boxes: Box3D[] = [];
-
-  // Tabletop
-  boxes.push({
-    id: "desk-top",
-    role: "deck",
-    pos: [0, H - topT / 2, D / 2],
-    size: [W, topT, D],
-    color: "#2fd06a",
-  });
-
-  // Apron (front rail between legs)
-  if (cfg.apron) {
-    const apronW = W - 2 * (inset + legT);
-    const apronT = mm3(18);
-    boxes.push({
-      id: "desk-apron",
-      role: "side",
-      pos: [0, H - topT - apronH / 2, apronT / 2],
-      size: [apronW, apronH, apronT],
-      color: "#2f88ff",
-    });
-  }
-
-  // Legs
-  const legXL = -(W / 2 - inset - legT / 2);
-  const legXR = +(W / 2 - inset - legT / 2);
-  const legY = legH / 2;
-  const legD = cfg.legType === "square" ? legT : D;
-
-  boxes.push({
-    id: "desk-leg-l",
-    role: "side",
-    pos: [legXL, legY, D / 2],
-    size: [legT, legH, legD],
-    color: "#2f88ff",
-  });
-  boxes.push({
-    id: "desk-leg-r",
-    role: "side",
-    pos: [legXR, legY, D / 2],
-    size: [legT, legH, legD],
-    color: "#2f88ff",
-  });
-
-  // Modesty panel (back privacy panel, lower half)
-  if (cfg.modesty) {
-    const modH = legH * 0.5;
-    const modW = W - 2 * (inset + legT);
-    const modT = mm3(18);
-    boxes.push({
-      id: "desk-modesty",
-      role: "back",
-      pos: [0, legH - modH / 2, modT / 2],
-      size: [modW, modH, modT],
-      color: "#8a93a6",
-    });
-  }
-
-  return boxes;
-}
 
 // ─── Diagram ────────────────────────────────────────────────────────────────
 
@@ -218,10 +120,11 @@ function DeskControls({ cfg, set }: { cfg: DeskConfig; set: <K extends keyof Des
 // ─── Pane ────────────────────────────────────────────────────────────────────
 
 export function DeskPane() {
-  const [cfg, setCfg] = useState<DeskConfig>(DEFAULTS);
+  const cfg = useStudioStore((s) => s.deskConfig);
+  const setDeskConfig = useStudioStore((s) => s.setDeskConfig);
   const [mobileView, setMobileView] = useState<"2d" | "3d">("2d");
   const set = <K extends keyof DeskConfig>(k: K, v: DeskConfig[K]) =>
-    setCfg((c) => ({ ...c, [k]: v }));
+    setDeskConfig({ ...cfg, [k]: v });
   const boxes3d = useMemo(() => deskToBoxes(cfg), [cfg]);
 
   return (
