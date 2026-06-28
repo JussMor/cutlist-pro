@@ -32,6 +32,16 @@ function cutStepMidpoint(step: CutStep): { x: number; y: number } {
   };
 }
 
+function sheetUsedPercent(sheetResult: CutResult["sheets"][number]): number {
+  const sheetArea = sheetResult.sheet.L * sheetResult.sheet.W;
+  if (sheetArea <= 0) return 0;
+  const placedArea = sheetResult.placed.reduce(
+    (sum, placed) => sum + placed.w * placed.h,
+    0,
+  );
+  return Math.min(100, (placedArea / sheetArea) * 100);
+}
+
 export function SheetLayouts({ panels, result }: Props) {
   const { unit, convert } = useUnitsStore();
 
@@ -77,7 +87,8 @@ export function SheetLayouts({ panels, result }: Props) {
             <strong>{sheetResult.sheet.name}</strong>
             <span className="muted">
               {convert(sheetResult.sheet.L).toFixed(1)} x{" "}
-              {convert(sheetResult.sheet.W).toFixed(1)} {unit}
+              {convert(sheetResult.sheet.W).toFixed(1)} {unit} ·{" "}
+              {sheetUsedPercent(sheetResult).toFixed(1)}% usado
             </span>
           </div>
 
