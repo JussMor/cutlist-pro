@@ -1,27 +1,36 @@
-import { GuillotineSplitPreference, PricingConfig } from "@/lib/domain/types";
+import {
+  GrainDirection,
+  GuillotineSplitPreference,
+  PricingConfig,
+} from "@/lib/domain/types";
+import { grainDirectionLabel } from "@/lib/optimizer/grain";
 import { FieldHelpTooltip } from "./FieldHelpTooltip";
 
 interface OptimizerSectionProps {
   pricing: PricingConfig;
   splitPreference: GuillotineSplitPreference;
+  grainDirection: GrainDirection;
   setPricingField: <K extends keyof PricingConfig>(
     key: K,
     value: PricingConfig[K],
   ) => void;
   setSplitPreference: (value: GuillotineSplitPreference) => void;
+  setGrainDirection: (value: GrainDirection) => void;
 }
 
 export function OptimizerSection({
   pricing,
   splitPreference,
+  grainDirection,
   setPricingField,
   setSplitPreference,
+  setGrainDirection,
 }: OptimizerSectionProps) {
   return (
     <div className="field-grid">
       <div className="field" style={{ gridColumn: "1 / -1" }}>
         <label className="inline-flex items-center gap-1.5">
-          Direccion de corte
+          Modo de corte
           <FieldHelpTooltip content="Normal usa vertical primero. Invertida usa horizontal primero. Auto compara normal, invertida y lado menor primero para elegir la mas optima." />
         </label>
         <div className="stock-mode-row">
@@ -46,6 +55,24 @@ export function OptimizerSection({
           >
             Auto optimo
           </button>
+        </div>
+      </div>
+      <div className="field" style={{ gridColumn: "1 / -1" }}>
+        <label className="inline-flex items-center gap-1.5">
+          Direccion de veta
+          <FieldHelpTooltip content="Para melamina con veta, bloquea la rotacion de piezas. Veta vertical pone el lado mayor de arriba hacia abajo en la plancha." />
+        </label>
+        <div className="stock-mode-row">
+          {(["none", "vertical", "horizontal"] as GrainDirection[]).map((direction) => (
+            <button
+              key={direction}
+              type="button"
+              className={`mode-chip ${grainDirection === direction ? "active" : ""}`}
+              onClick={() => setGrainDirection(direction)}
+            >
+              {grainDirectionLabel(direction)}
+            </button>
+          ))}
         </div>
       </div>
       <div className="field">
