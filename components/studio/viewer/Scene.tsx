@@ -1,6 +1,6 @@
 "use client";
 
-import { OrbitControls } from "@react-three/drei";
+import { Html, OrbitControls } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import { useMemo } from "react";
 
@@ -31,6 +31,86 @@ function mirrorForView(b: Box3D): Box3D {
 }
 
 import { PanelMesh } from "./PanelMesh";
+
+const CUTTABLE_ROLES = new Set<Box3D["role"]>([
+  "deck",
+  "side",
+  "back",
+  "door",
+  "drawer-front",
+  "drawer-side",
+  "drawer-back",
+  "drawer-bottom",
+  "drawer-inner-front",
+  "shelf",
+  "divider-panel",
+]);
+
+function formatCm(value: number) {
+  return `${Math.round(value * 100)} cm`;
+}
+
+function roleLabel(box: Box3D) {
+  if (box.role === "drawer-front") return "Frente";
+  if (box.role === "drawer-side") return "Lateral x2";
+  if (box.role === "drawer-back") return "Trasera";
+  if (box.role === "drawer-bottom") return "Fondo";
+  if (box.role === "drawer-inner-front") return "Frente int.";
+  if (box.role === "side") return "Lateral";
+  if (box.role === "deck") return "Tapa/Base";
+  if (box.role === "shelf") return "Entrepanio";
+  if (box.role === "back") return "Fondo";
+  if (box.role === "door") return "Puerta";
+  if (box.role === "divider-panel") return "Divisor";
+  return "Pieza";
+}
+
+function panelFaceDimensions(box: Box3D): [number, number] {
+  const [w, h, d] = box.size;
+  if (box.role === "side" || box.role === "divider-panel") return [h, d];
+  if (box.role === "deck" || box.role === "shelf" || box.role === "drawer-bottom") return [w, d];
+  return [h, w];
+}
+
+function dimensionText(box: Box3D) {
+  const [a, b] = panelFaceDimensions(box);
+  return `${formatCm(a)} x ${formatCm(b)}`;
+}
+
+function isDrawerPart(box: Box3D) {
+  return box.role.startsWith("drawer-");
+}
+
+function shouldLabelBox(box: Box3D, seenDrawerParts: Set<string>) {
+  if (!CUTTABLE_ROLES.has(box.role)) return false;
+  if (box.role === "drawer-inner-front") return false;
+  if (isDrawerPart(box)) {
+    const key = `${box.role}-${dimensionText(box)}`;
+    if (seenDrawerParts.has(key)) return false;
+    seenDrawerParts.add(key);
+  }
+  return true;
+}
+
+function DimensionLabel({ box }: { box: Box3D }) {
+  const yOffset = Math.max(box.size[1] / 2 + 0.025, 0.04);
+  return (
+    <Html
+      position={[box.pos[0], box.pos[1] + yOffset, box.pos[2]]}
+      center
+      distanceFactor={4.8}
+      occlude={false}
+      style={{ pointerEvents: "none" }}
+    >
+      <div className="rounded border border-black/30 bg-black/70 px-1.5 py-1 text-center text-[10px] font-semibold leading-tight text-white shadow">
+        <div className="whitespace-nowrap">{roleLabel(box)}</div>
+        <div className="whitespace-nowrap text-[9px] font-medium text-[#d7dde9]">
+          {dimensionText(box)}
+        </div>
+      </div>
+    </Html>
+  );
+}
 
 function DottedFloor({
   cx,
@@ -124,6 +204,12 @@ export default function Scene({
     return laid.map(mirrorForView);
   }, [doc, mode, overrideBoxes]);
 
+  const labeledBoxes = useMemo(() => {
+    if (mode !== "expanded") return [];
+    const seenDrawerParts = new Set<string>();
+    return boxes.filter((box) => shouldLabelBox(box, seenDrawerParts));
+  }, [boxes, mode]);
+
   const bounds = useMemo(() => assemblyBounds(boxes), [boxes]);
   const [cx, cy, cz] = bounds.center;
   const radius = Math.max(...bounds.size, 0.6);
@@ -158,6 +244,9 @@ export default function Scene({
             />
           );
         })}
+        {labeledBoxes.map((b) => (
+          <DimensionLabel key={`dim-${b.id}`} box={b} />
+        ))}
       </group>
       <DottedFloor cx={cx} y={bounds.min[1] - 0.002} cz={cz} colorMode={colorMode} />
       <OrbitControls makeDefault enableDamping target={[cx, cy, cz]} />

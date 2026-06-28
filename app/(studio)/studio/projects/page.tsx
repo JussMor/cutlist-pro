@@ -64,7 +64,7 @@ export default function StudioProjectsPage() {
               <RefreshCw size={14} />
               Actualizar
             </button>
-            <Link href="/studio" className="template-btn active">
+            <Link href="/studio?new=1" className="template-btn active">
               <Plus size={14} />
               Nuevo proyecto
             </Link>
