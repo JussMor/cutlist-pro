@@ -46,9 +46,6 @@ const CUTTABLE_ROLES = new Set<Box3D["role"]>([
   "divider-panel",
 ]);
 
-const drawerGroupKey = (box: Box3D) =>
-  `${box.meta?.column ?? "c"}-${box.meta?.cell ?? "m"}-${box.meta?.drawer ?? "d"}`;
-
 function formatCm(value: number) {
   return `${Math.round(value * 100)} cm`;
 }
@@ -80,11 +77,15 @@ function dimensionText(box: Box3D) {
   return `${formatCm(a)} x ${formatCm(b)}`;
 }
 
+function isDrawerPart(box: Box3D) {
+  return box.role.startsWith("drawer-");
+}
+
 function shouldLabelBox(box: Box3D, seenDrawerParts: Set<string>) {
   if (!CUTTABLE_ROLES.has(box.role)) return false;
   if (box.role === "drawer-inner-front") return false;
-  if (box.role === "drawer-side") {
-    const key = `${drawerGroupKey(box)}-side`;
+  if (isDrawerPart(box)) {
+    const key = `${box.role}-${dimensionText(box)}`;
     if (seenDrawerParts.has(key)) return false;
     seenDrawerParts.add(key);
   }
