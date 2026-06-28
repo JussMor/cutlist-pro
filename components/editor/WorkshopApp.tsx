@@ -370,8 +370,10 @@ export function WorkshopApp() {
                 <OptimizerSection
                   pricing={pricing}
                   splitPreference={pv.splitPreference}
+                  grainDirection={pv.grainDirection}
                   setPricingField={setPricingField}
                   setSplitPreference={pv.setSplitPreference}
+                  setGrainDirection={pv.setGrainDirection}
                 />
               </div>
             )}

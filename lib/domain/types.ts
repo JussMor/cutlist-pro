@@ -33,6 +33,8 @@ export interface BandingEdges {
   right: boolean;
 }
 
+export type GrainDirection = "horizontal" | "vertical" | "none";
+
 export interface Panel {
   id: string;
   label: string;
@@ -44,7 +46,7 @@ export interface Panel {
   W: number;
   banding: BandingEdges;
   stockSheetId?: number | null;
-  grainDirection?: "horizontal" | "vertical" | "none";
+  grainDirection?: GrainDirection;
 }
 
 export interface ModuleNode {

@@ -3,6 +3,7 @@ import { preparePanelsByRole } from "@/lib/domain/roleRules";
 import {
   ArtifactInstance,
   CutResult,
+  GrainDirection,
   GuillotineSplitPreference,
   MaterialMode,
   ModuleNode,
@@ -10,6 +11,10 @@ import {
   PricingConfig,
   StockSheet,
 } from "@/lib/domain/types";
+import {
+  applyGrainDirectionToPanels,
+  panelFitsSheetWithGrain,
+} from "@/lib/optimizer/grain";
 import React, { useMemo, useState } from "react";
 import {
   buildManualIsoLayout,
@@ -47,12 +52,14 @@ export interface UseWorkshopPreviewReturn {
   opsSummary: string | null;
   warnings: string[];
   splitPreference: GuillotineSplitPreference;
+  grainDirection: GrainDirection;
   previewColorMode: PreviewColorMode;
   coloredIsoPanels: ReturnType<typeof buildManualIsoLayout>;
   runOptimize: (options?: { bypassRoleValidation?: boolean }) => Promise<void>;
   setSplitPreference: React.Dispatch<
     React.SetStateAction<GuillotineSplitPreference>
   >;
+  setGrainDirection: React.Dispatch<React.SetStateAction<GrainDirection>>;
   setPreviewColorMode: React.Dispatch<React.SetStateAction<PreviewColorMode>>;
   setWarnings: React.Dispatch<React.SetStateAction<string[]>>;
 }
@@ -77,6 +84,8 @@ export function useWorkshopPreview({
   const [warnings, setWarnings] = useState<string[]>([]);
   const [splitPreference, setSplitPreference] =
     useState<GuillotineSplitPreference>("vertical-first");
+  const [grainDirection, setGrainDirection] =
+    useState<GrainDirection>("none");
   const [previewColorMode, setPreviewColorMode] =
     useState<PreviewColorMode>("material");
 
@@ -119,9 +128,7 @@ export function useWorkshopPreview({
 
   function panelFitsAnySource(panel: Panel, sourceSheets: StockSheet[]) {
     return sourceSheets.some(
-      (sheet) =>
-        (panel.W <= sheet.W && panel.L <= sheet.L) ||
-        (panel.L <= sheet.W && panel.W <= sheet.L),
+      (sheet) => panelFitsSheetWithGrain(panel, sheet),
     );
   }
 
@@ -250,7 +257,10 @@ export function useWorkshopPreview({
       }
 
       let source = assignableSheets;
-      let optimizePanels = prepared.panels;
+      let optimizePanels = applyGrainDirectionToPanels(
+        prepared.panels,
+        grainDirection,
+      );
       if (sheets.length === 0) {
         console.info("[optimize] sheets missing in state, fetching sheets API");
         const loaded = await fetchSheets();
@@ -326,7 +336,7 @@ export function useWorkshopPreview({
           return true;
         });
         let remappedPanels = 0;
-        optimizePanels = prepared.panels.map((panel) => {
+        optimizePanels = optimizePanels.map((panel) => {
           if (!panel.stockSheetId) return panel;
           const cId =
             canonicalBySheetId.get(panel.stockSheetId) ?? panel.stockSheetId;
@@ -413,6 +423,7 @@ export function useWorkshopPreview({
         panelCount: optimizePanels.length,
         sheetCount: source.length,
         splitPreference,
+        grainDirection,
         kerfCm: pricing.kerfCm,
       });
       const opt = await optimize(optimizePanels, source, pricing, {
@@ -486,10 +497,12 @@ export function useWorkshopPreview({
     opsSummary,
     warnings,
     splitPreference,
+    grainDirection,
     previewColorMode,
     coloredIsoPanels,
     runOptimize,
     setSplitPreference,
+    setGrainDirection,
     setPreviewColorMode,
     setWarnings,
   };

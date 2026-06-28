@@ -8,12 +8,18 @@ import { CostBreakdown } from "@/components/pricing/CostBreakdown";
 import { optimize, fetchSheets } from "@/lib/api/client";
 import type {
   CutResult,
+  GrainDirection,
   GuillotineSplitPreference,
   MaterialMode,
   Panel,
   PanelRole,
   StockSheet,
 } from "@/lib/domain/types";
+import {
+  applyGrainDirectionToPanels,
+  grainDirectionLabel,
+  panelFitsSheetWithGrain,
+} from "@/lib/optimizer/grain";
 import { aggregateDespiece, type AggregateEntry } from "@/lib/studio/aggregate";
 import { computeDespiece, computeDespieceFromBoxes } from "@/lib/studio/despiece";
 import type { StudioPanel } from "@/lib/studio/despiece";
@@ -142,10 +148,7 @@ function isDrawerPanel(panel: StudioPanel) {
 }
 
 function panelFitsSheet(panel: Panel, sheet: StockSheet): boolean {
-  return (
-    (panel.L <= sheet.L && panel.W <= sheet.W) ||
-    (panel.W <= sheet.L && panel.L <= sheet.W)
-  );
+  return panelFitsSheetWithGrain(panel, sheet);
 }
 
 function panelFitsAnySheet(panel: Panel, sheets: StockSheet[]): boolean {
@@ -227,6 +230,8 @@ export function CutlistPane() {
   );
   const [splitPreference, setSplitPreference] =
     useState<GuillotineSplitPreference>("vertical-first");
+  const [grainDirection, setGrainDirection] =
+    useState<GrainDirection>("none");
   const [loadingSheets, setLoadingSheets] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
   const [result, setResult] = useState<CutResult | null>(null);
@@ -280,8 +285,8 @@ export function CutlistPane() {
           : (panelSheets[panelId(panel)] ?? null);
       return toOptimizerPanel(panel, sheetId);
     });
-    return [...auto, ...manual, ...extra];
-  }, [materialMode, manualPanels, panelSheets, panels, extraPanels, primarySheetId, bandingOverrides]);
+    return applyGrainDirectionToPanels([...auto, ...manual, ...extra], grainDirection);
+  }, [materialMode, manualPanels, panelSheets, panels, extraPanels, primarySheetId, bandingOverrides, grainDirection]);
 
   // Pre-flight: panels that won't fit any selected sheet — shown before the user
   // even clicks "Optimizar" so they can fix the sheet selection first.
@@ -343,7 +348,7 @@ export function CutlistPane() {
 
   useEffect(() => {
     setResult(null);
-  }, [doc, materialMode, primarySheetId, selectedSheetIds, globalDims, panelSheets, extraEntries]);
+  }, [doc, materialMode, primarySheetId, selectedSheetIds, globalDims, panelSheets, extraEntries, grainDirection]);
 
   async function loadSheets(forceRefresh = false) {
     try {
@@ -744,6 +749,22 @@ export function CutlistPane() {
                 ).map((preference) => (
                   <option key={preference} value={preference}>
                     {splitPreferenceLabel(preference)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-xs text-[#7d879a]">
+              Direccion de veta
+              <select
+                className="table-input min-w-44"
+                value={grainDirection}
+                onChange={(event) =>
+                  setGrainDirection(event.target.value as GrainDirection)
+                }
+              >
+                {(["none", "vertical", "horizontal"] as GrainDirection[]).map((direction) => (
+                  <option key={direction} value={direction}>
+                    {grainDirectionLabel(direction)}
                   </option>
                 ))}
               </select>
