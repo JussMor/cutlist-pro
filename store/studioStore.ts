@@ -38,6 +38,7 @@ import {
   MAX_MODULE_HEIGHT_CM,
   type CellPatch,
   type ManualPanel,
+  type StudioFurnitureMode,
   type StudioColumn,
   type StudioDocument,
   type StudioGlobals,
@@ -46,7 +47,7 @@ import {
 export type StudioTab = "design" | "cutlist";
 export type RenderMode = "closed" | "open" | "expanded";
 export type ColorMode = "colored" | "uncolored";
-export type FurnitureMode = "cabinet" | "desk" | "door" | "column";
+export type FurnitureMode = StudioFurnitureMode;
 
 export type { DeskConfig, DoorConfig, ColumnConfig };
 
@@ -98,8 +99,25 @@ interface StudioState {
 
   newDocument: () => void;
   load: (id: string) => Promise<void>;
-  save: () => Promise<void>;
-  publish: () => Promise<void>;
+  save: () => Promise<string>;
+  publish: () => Promise<string>;
+}
+
+const ACTIVE_STUDIO_DOC_KEY = "cutlist-pro:active-studio-doc-id";
+
+export function getActiveStudioDocId(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(ACTIVE_STUDIO_DOC_KEY);
+}
+
+function setActiveStudioDocId(id: string) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(ACTIVE_STUDIO_DOC_KEY, id);
+}
+
+function clearActiveStudioDocId() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(ACTIVE_STUDIO_DOC_KEY);
 }
 
 function selectedColumnIds(doc: StudioDocument, selection: string[]): string[] {
@@ -189,21 +207,44 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     set((s) => ({ doc: toggleNoCarcassMut(s.doc, colId) })),
 
   newDocument: () =>
-    set({ doc: createStudioDocument(), selection: [], publishedAt: undefined }),
+    set(() => {
+      clearActiveStudioDocId();
+      return {
+        doc: createStudioDocument(),
+        furnitureMode: "cabinet",
+        deskConfig: DESK_DEFAULTS,
+        doorConfig: DOOR_DEFAULTS,
+        columnConfig: COLUMN_DEFAULTS,
+        selection: [],
+        publishedAt: undefined,
+      };
+    }),
 
   load: async (id) => {
     const record = await loadStudioDoc(id);
     if (record) {
       const doc = { ...record.document, manualPanels: record.document.manualPanels ?? [] };
-      set({ doc, publishedAt: record.publishedAt, selection: [] });
+      set({
+        doc,
+        furnitureMode: doc.furnitureMode ?? "cabinet",
+        deskConfig: doc.deskConfig ?? DESK_DEFAULTS,
+        doorConfig: doc.doorConfig ?? DOOR_DEFAULTS,
+        columnConfig: doc.columnConfig ?? COLUMN_DEFAULTS,
+        publishedAt: record.publishedAt,
+        selection: [],
+      });
+      setActiveStudioDocId(doc.id);
     }
   },
 
   save: async () => {
     set({ saving: true });
     try {
-      const { doc, publishedAt } = get();
-      await saveStudioDoc(toRecord(doc, publishedAt));
+      const state = get();
+      await saveStudioDoc(toRecord(state));
+      const { doc } = state;
+      setActiveStudioDocId(doc.id);
+      return doc.id;
     } finally {
       set({ saving: false });
     }
@@ -213,16 +254,33 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     const publishedAt = Date.now();
     set({ saving: true, publishedAt });
     try {
-      const { doc } = get();
-      await saveStudioDoc(toRecord(doc, publishedAt));
+      const state = { ...get(), publishedAt };
+      await saveStudioDoc(toRecord(state));
+      const { doc } = state;
+      setActiveStudioDocId(doc.id);
+      return doc.id;
     } finally {
       set({ saving: false });
     }
   },
 }));
 
-function toRecord(doc: StudioDocument, publishedAt?: number): StudioDocRecord {
-  return { id: doc.id, title: doc.title, document: doc, publishedAt };
+function toRecord(state: StudioState): StudioDocRecord {
+  const now = Date.now();
+  const document: StudioDocument = {
+    ...state.doc,
+    furnitureMode: state.furnitureMode,
+    deskConfig: state.deskConfig,
+    doorConfig: state.doorConfig,
+    columnConfig: state.columnConfig,
+    updatedAt: now,
+  };
+  return {
+    id: document.id,
+    title: document.title,
+    document,
+    publishedAt: state.publishedAt,
+  };
 }
 
 export type { StudioColumn };

@@ -8,6 +8,12 @@
  * The despiece + geometry engines convert to a single working unit.
  */
 
+import type {
+  ColumnConfig,
+  DeskConfig,
+  DoorConfig,
+} from "@/lib/studio/furnitureGeometry";
+
 /**
  * Legacy single-axis cell type. Kept for backward compatibility with saved
  * documents; new code reads `interior` + `front` via the helpers below.
@@ -118,6 +124,8 @@ export interface ManualPanel {
 
 export type BandingMap = Record<string, { top: boolean; bottom: boolean; left: boolean; right: boolean }>;
 
+export type StudioFurnitureMode = "cabinet" | "desk" | "door" | "column";
+
 export interface StudioDocument {
   id: string;
   title: string;
@@ -125,6 +133,10 @@ export interface StudioDocument {
   globals: StudioGlobals;
   manualPanels: ManualPanel[];
   bandingOverrides?: BandingMap; // keyed by StudioPanel.key — user overrides for auto panels
+  furnitureMode?: StudioFurnitureMode;
+  deskConfig?: DeskConfig;
+  doorConfig?: DoorConfig;
+  columnConfig?: ColumnConfig;
   createdAt: number;
   updatedAt: number;
 }

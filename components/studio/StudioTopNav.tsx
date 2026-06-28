@@ -12,7 +12,7 @@ import {
   Upload,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -100,6 +100,7 @@ function ViewToolbar({
 
 export function StudioTopNav() {
   const router = useRouter();
+  const pathname = usePathname();
   const title = useStudioStore((s) => s.doc.title);
   const setTitle = useStudioStore((s) => s.setTitle);
   const activeTab = useStudioStore((s) => s.activeTab);
@@ -118,9 +119,14 @@ export function StudioTopNav() {
     setStatus(msg);
     setTimeout(() => setStatus(null), 2500);
   };
+  const syncDocumentRoute = (id: string) => {
+    const target = `/studio/${id}`;
+    if (pathname !== target) router.replace(target);
+  };
   const handleSave = async () => {
     try {
-      await save();
+      const id = await save();
+      syncDocumentRoute(id);
       flash("Saved");
     } catch {
       flash("Save failed");
@@ -128,7 +134,8 @@ export function StudioTopNav() {
   };
   const handlePublish = async () => {
     try {
-      await publish();
+      const id = await publish();
+      syncDocumentRoute(id);
       flash("Published");
     } catch {
       flash("Publish failed");
@@ -136,7 +143,7 @@ export function StudioTopNav() {
   };
   const handleNewDocument = () => {
     newDocument();
-    router.push("/studio");
+    router.push("/studio?new=1");
     flash("New project");
   };
 
@@ -144,14 +151,15 @@ export function StudioTopNav() {
     if (title === lastSavedTitleRef.current) return;
     const timeout = setTimeout(() => {
       save()
-        .then(() => {
+        .then((id) => {
           lastSavedTitleRef.current = title;
+          syncDocumentRoute(id);
           flash("Saved");
         })
         .catch(() => flash("Save failed"));
     }, 700);
     return () => clearTimeout(timeout);
-  }, [save, title]);
+  }, [save, title, pathname, router]);
 
   const moreMenu = (
     <Popover>
